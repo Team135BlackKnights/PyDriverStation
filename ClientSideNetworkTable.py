@@ -10,12 +10,19 @@ import matplotlib.pyplot as plt
 import math
 from decimal import Decimal
 
-# To see messages from networktables, you must setup logging
+# To see messages from networktables, you must set up logging
 import logging
-
+global vectorValuedFunction
+vectorValuedFunction = False #Checks to see if it has multiple inputs
+global inputVariableDimensions
+inputVariableDimensions= 1
 global hasParseDataRan
 hasParseDataRan = False
-global dataArray
+global mvInputVectors
+mvInputVector = []
+global mvOutputVectors
+mvOutputVectors = []
+
 # Holds data from file
 global dataArray
 dataArray = [[], []]
@@ -44,6 +51,9 @@ keptDecimalPlaces = 5
 # r-squared is the proportion of variablility in the data accounted for the model, or how accurate the graph is to the model. Higher r squared is better. 1 means the graph is perfectly accurate, 0 means it is not accurate at all.
 # Formula for r squared is 1-[(sum of differences between actual minus predicted)^2/(sum of y minus the y mean)^2]
 def runData(shouldShow):
+    global dataArray
+    global mvInputVectors
+    global mvOutputVectors
     parseData()
     n = len(dataArray[0])
     deg = 1
@@ -123,7 +133,8 @@ def computeRSquared(deg, shouldShow):
 def parseData():
     global hasParseDataRan
     global dataArray
-
+    global mvInputVectors
+    global mvOutputVectors
     if not hasParseDataRan:
         # This reads all txt files in sample_data, and puts them all in a nx2 matrix (n being amount of rows, 2 being the amount of columns)
         # reads every file in the sample_data folder
@@ -135,24 +146,39 @@ def parseData():
                 lineCount = 0
 
                 for line in reader:
+
                     try:
                         # so it doesn't read headings of txt files, or the column names
                         if lineCount > 1:
 
                             # x vals are data array 0 y vals are data array 1
                             dataLambda = line.split(",")
-                            if len(dataLambda) == 2:
+
+                            dataLambdalen = len(dataLambda)
+                            if len(dataLambda) == 2: #if input variable is 1
                                 dataArray[0].append(float(dataLambda[0]))
                                 dataArray[1].append(float(dataLambda[1]))
+                            else: #Multiple input variables
+                                mvInputVector = []
+                                for i in range(0, len(dataLambda)-2): #all except the last value in the list
+                                    #Create a new input vector for the function
+                                    mvInputVector.append(dataLambda[i])
+                                #Log the input vector
+                                mvInputVectors.append(mvInputVector)
+                                #Log the output vector
+                                mvOutputVectors.append(dataLambda[:-1])
 
                     except:
                         # if an error occurs, print the line that it failed to read
                         print("Error reading line", lineCount)
                     lineCount += 1
-
-        # converts read values into np array for regression
-        dataArray = np.array(dataArray)
-        # For Debugging, makes sure that your data looks good
+        if (vectorValuedFunction):
+            mvInputVectors = np.array(mvInputVector)
+            mvOutputVectors = np.array(mvOutputVectors)
+        else:
+            # converts read values into np array for regression
+            dataArray = np.array(dataArray)
+            # For Debugging, makes sure that your data looks good
         """print("Data Array X Values:")
         print(dataArray[0])
         print(" ")
@@ -206,7 +232,7 @@ while True:
             #CALL THE COMPUTE R SQUARED FUNCTION HERE!
         if "shouldUpdateModel" in data_from_robot:
             input = data_from_robot["shouldUpdateModel"]
-            if (input == "modelUpdate"):
+            if (input == "modelUpdate" & inputVariableDimensions == 1):
                 modelString = runModel(True)
                 data_to_robot["modelUpdated"] = modelString
 
