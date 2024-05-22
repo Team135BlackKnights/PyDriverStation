@@ -29,6 +29,8 @@ functXList = []
 # Holds residuals (actual value minus predicted value)
 global residList
 residList = []
+global residSquaredList
+residSquaredList = []
 # Holds all of the differences between individual values and the mean
 global stdDevList
 stdDevList = []
@@ -38,21 +40,25 @@ deadband = .000001
 # Digits to truncate to
 keptDecimalPlaces = 5
 
+
 # r-squared is the proportion of variablility in the data accounted for the model, or how accurate the graph is to the model. Higher r squared is better. 1 means the graph is perfectly accurate, 0 means it is not accurate at all.
 # Formula for r squared is 1-[(sum of differences between actual minus predicted)^2/(sum of y minus the y mean)^2]
 def runData(shouldShow):
     parseData()
-
     n = len(dataArray[0])
     deg = 1
     while (n >= 9):
         n -= 10
         deg += 1
-    print("Based on the rule of 10, the polynomial degree should be:", deg)
-    computeRSquared(deg,shouldShow)
+    #print("Based on the rule of 10, the polynomial degree should be:", deg)
+    model = computeRSquared(deg, shouldShow)
+    return model
+
 
 def computeRSquared(deg, shouldShow):
     # Variable declarations (i typically program in java, sue me)
+    plt.subplot(graphSubplotSize[0], graphSubplotSize[1], graphSubplotSize[2])
+    plt.plot(dataArray[0], dataArray[1], "ro")
     rSquared = 0
     rSquaredNum = 0
     # sample number
@@ -69,10 +75,11 @@ def computeRSquared(deg, shouldShow):
         if abs(residVal) < deadband:
             residVal = 0
         residList.append(residVal)
+
     for i in range(n):
-        residList[i] = residList[i] * residList[i]
+        residSquaredList.append(residList[i] * residList[i])
     # Numerator is the sum of squared residuals
-    rSquaredNum = np.sum(residList)
+    rSquaredNum = np.sum(residSquaredList)
     # Squares the difference between each data point's y coord and the mean, then sums them
     for i in dataArray[1]:
         indDiv = (i - meanY)
@@ -84,6 +91,7 @@ def computeRSquared(deg, shouldShow):
     # Outputs r squared
     print("R Squared:", rSquared, "\n")
     if shouldShow:
+
         maxMinusMin = max(dataArray[0]) - min(dataArray[0])
         indSegLen = maxMinusMin / 50
 
@@ -110,11 +118,11 @@ def computeRSquared(deg, shouldShow):
         plt.plot(xValues, yValues)
         plt.title("Residuals")
         plt.show()
+    return model
 
 def parseData():
     global hasParseDataRan
     global dataArray
-    print(hasParseDataRan)
 
     if not hasParseDataRan:
         # This reads all txt files in sample_data, and puts them all in a nx2 matrix (n being amount of rows, 2 being the amount of columns)
@@ -145,26 +153,37 @@ def parseData():
         # converts read values into np array for regression
         dataArray = np.array(dataArray)
         # For Debugging, makes sure that your data looks good
-        print("Data Array X Values:")
+        """print("Data Array X Values:")
         print(dataArray[0])
         print(" ")
         print("Data Array Y Values:")
         print(dataArray[1])
-        print(" ")
+        print(" ")"""
     else:
         print("Data has already been parsed, moving on")
     hasParseDataRan = True
 
 
 logging.basicConfig(level=logging.ERROR)
-
-
-runData(True)
+def runModel(shouldShow):
+    model = runData(True)
+    modelString = ""
+    for i in range(len(model)):
+      xValue = model[i]
+      if abs(xValue) < deadband:
+        xValue = 0
+      #Truncates value to the amount of decimal places specified in the variable (done so that floating-point error is negligible)
+      xValue *= math.pow(10, keptDecimalPlaces)
+      xValue = math.trunc(xValue)
+      xValue /= math.pow(10, keptDecimalPlaces)
+      modelString += str(xValue) + ","
+    modelString = modelString[:-1]
+    return modelString
 while not NetworkTables.isConnected():
     NetworkTables.initialize(server="10.1.35.2")
-    time.sleep(3)
+    time.sleep(2)
     NetworkTables.initialize(server="localhost")
-    time.sleep(3)
+    time.sleep(2)
 
 #connected
 
@@ -173,23 +192,30 @@ while not NetworkTables.isConnected():
 sd = NetworkTables.getTable("SmartDashboard")
 
 data_to_robot = {
-    "test": "0" #comma then next value
+    "test": "0"  #comma then next value
 }
-
 i = 0
 while True:
     # Read JSON from robot
-    json_response = sd.getString("DataHandlerResponse", "default")
+    data_to_robot.clear()
+    json_response = sd.getString("FromRobot", "default")
     if json_response != "default":
         data_from_robot = json.loads(json_response)
         if "status" in data_from_robot:
             print("Robot status:", data_from_robot["status"])
             #CALL THE COMPUTE R SQUARED FUNCTION HERE!
-    i +=1
+        if "shouldUpdateModel" in data_from_robot:
+            input = data_from_robot["shouldUpdateModel"]
+            if (input == "modelUpdate"):
+                modelString = runModel(True)
+                data_to_robot["modelUpdated"] = modelString
+
+
+    i += 1
     data_to_robot["test"] = i
     # Convert dictionary to JSON string
     json_data_to_robot = json.dumps(data_to_robot)
 
     # Send JSON to robot
-    sd.putString("DataHandler", json_data_to_robot)
+    sd.putString("ToRobot", json_data_to_robot)
     time.sleep(0.105)
