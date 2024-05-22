@@ -211,20 +211,25 @@ data_to_robot = {
     "test": "0"  #comma then next value
 }
 i = 0
+lastSentUpdate = 0
+print("ruin")
 while True:
     # Read JSON from robot
     data_to_robot.clear()
     json_response = sd.getString("FromRobot", "default")
     if json_response != "default":
         data_from_robot = json.loads(json_response)
-        if "status" in data_from_robot:
-            print("Robot status:", data_from_robot["status"])
+
+            #print("Robot status:", data_from_robot["status"])
             #CALL THE COMPUTE R SQUARED FUNCTION HERE!
         if "shouldUpdateModel" in data_from_robot:
-            m_input = data_from_robot["shouldUpdateModel"]
-            if m_input == "modelUpdate" and inputVariableDimensions == 1:
-                modelString = runModel(True)
-                data_to_robot["modelUpdated"] = modelString
+            if time.time() - lastSentUpdate >.5:
+                print("DO")
+                lastSentUpdate = time.time()
+                m_input = data_from_robot["shouldUpdateModel"]
+                if m_input == "modelUpdate" and inputVariableDimensions == 1:
+                    modelString = runModel(True)
+                    data_to_robot["modelUpdated"] = modelString
 
     i += 1
     data_to_robot["test"] = i
