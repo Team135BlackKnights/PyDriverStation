@@ -1,32 +1,23 @@
-import sys
 import time
 import json
 from networktables import NetworkTables
-from re import X
 import numpy as np
 import os
-import io
 import matplotlib.pyplot as plt
 import math
-from decimal import Decimal
 
-# To see messages from networktables, you must set up logging
+# To see messages from network tables, you must set up logging
 import logging
-global vectorValuedFunction
-vectorValuedFunction = False #Checks to see if it has multiple inputs
-global inputVariableDimensions
-inputVariableDimensions= 1
-global hasParseDataRan
+
+vectorValuedFunction = False  #Checks to see if it has multiple inputs
+inputVariableDimensions = 1
 hasParseDataRan = False
-global mvInputVectors
 mvInputVector = []
-global mvOutputVectors
+mvInputVectors = []
 mvOutputVectors = []
 
 # Holds data from file
-global dataArray
 dataArray = [[], []]
-global graphSubplotSize
 graphSubplotSize = [2, 2, 1]
 dataLambda = []
 # Holds output of the function
@@ -34,12 +25,9 @@ functionOut = []
 # For making the graph look smooth
 functXList = []
 # Holds residuals (actual value minus predicted value)
-global residList
 residList = []
-global residSquaredList
 residSquaredList = []
-# Holds all of the differences between individual values and the mean
-global stdDevList
+# Holds all the differences between individual values and the mean
 stdDevList = []
 # Basically "If a coefficient is below this number, set it to zero"
 # If you want completely raw values, set deadband to zero
@@ -48,7 +36,8 @@ deadband = .000001
 keptDecimalPlaces = 5
 
 
-# r-squared is the proportion of variablility in the data accounted for the model, or how accurate the graph is to the model. Higher r squared is better. 1 means the graph is perfectly accurate, 0 means it is not accurate at all.
+# r-squared is the proportion of variability in the data accounted for the model, or how accurate the graph is to
+# the model. Higher r squared is better. 1 means the graph is perfectly accurate, 0 means it is not accurate at all.
 # Formula for r squared is 1-[(sum of differences between actual minus predicted)^2/(sum of y minus the y mean)^2]
 def runData(shouldShow):
     global dataArray
@@ -57,7 +46,7 @@ def runData(shouldShow):
     parseData()
     n = len(dataArray[0])
     deg = 1
-    while (n >= 9):
+    while n >= 9:
         n -= 10
         deg += 1
     #print("Based on the rule of 10, the polynomial degree should be:", deg)
@@ -67,10 +56,11 @@ def runData(shouldShow):
 
 def computeRSquared(deg, shouldShow):
     # Variable declarations (i typically program in java, sue me)
+    residList.clear()
+    residSquaredList.clear()
+    stdDevList.clear()
     plt.subplot(graphSubplotSize[0], graphSubplotSize[1], graphSubplotSize[2])
     plt.plot(dataArray[0], dataArray[1], "ro")
-    rSquared = 0
-    rSquaredNum = 0
     # sample number
     n = len(dataArray[0])
     # average of output
@@ -103,10 +93,9 @@ def computeRSquared(deg, shouldShow):
     if shouldShow:
 
         maxMinusMin = max(dataArray[0]) - min(dataArray[0])
-        indSegLen = maxMinusMin / 50
 
-        # intended to graph the polynomial from 15 percent of the range below the min to 15 percent of the range above the maximu
-        # values that show minimum and maximum values to graph
+        # intended to graph the polynomial from 15 percent of the range below the min to 15 percent of the range
+        # above the maximum values that show minimum and maximum values to graph
         graphMin = -.33 * maxMinusMin + min(dataArray[0])
         graphMax = .33 * maxMinusMin + max(dataArray[0])
         indSegLen = (graphMax - graphMin) / 50
@@ -122,7 +111,7 @@ def computeRSquared(deg, shouldShow):
         # Graphs lists of points
         plt.subplot(graphSubplotSize[0], graphSubplotSize[1], (graphSubplotSize[2] + 1))
         plt.plot(dataArray[0], residList, "ro")
-        # Creates the x axis (for better referencing)
+        # Creates the x-axis (for better referencing)
         xValues = [min(dataArray[0]), max(dataArray[0])]
         yValues = [0, 0]
         plt.plot(xValues, yValues)
@@ -130,14 +119,12 @@ def computeRSquared(deg, shouldShow):
         plt.show()
     return model
 
+
 def parseData():
-    global hasParseDataRan
-    global dataArray
-    global mvInputVectors
-    global mvOutputVectors
+    global hasParseDataRan, mvInputVector, dataArray, mvInputVectors, mvOutputVectors
     if not hasParseDataRan:
-        # This reads all txt files in sample_data, and puts them all in a nx2 matrix (n being amount of rows, 2 being the amount of columns)
-        # reads every file in the sample_data folder
+        # This reads all txt files in sample_data, and puts them all in a nx2 matrix (n being amount of rows,
+        # 2 being the amount of columns) reads every file in the sample_data folder
         for file in os.listdir("data"):
             # checks if the file is a .csv (rio data log file type)
             if file.endswith(".txt"):
@@ -152,27 +139,26 @@ def parseData():
                         if lineCount > 1:
 
                             # x vals are data array 0 y vals are data array 1
-                            dataLambda = line.split(",")
+                            readDataLambda = line.split(",")
 
-                            dataLambdalen = len(dataLambda)
-                            if len(dataLambda) == 2: #if input variable is 1
-                                dataArray[0].append(float(dataLambda[0]))
-                                dataArray[1].append(float(dataLambda[1]))
-                            else: #Multiple input variables
+                            if len(readDataLambda) == 2:  #if input variable is 1
+                                dataArray[0].append(float(readDataLambda[0]))
+                                dataArray[1].append(float(readDataLambda[1]))
+                            else:  #Multiple input variables
                                 mvInputVector = []
-                                for i in range(0, len(dataLambda)-2): #all except the last value in the list
+                                for i in range(0, len(readDataLambda) - 2):  #all except the last value in the list
                                     #Create a new input vector for the function
-                                    mvInputVector.append(dataLambda[i])
+                                    mvInputVector.append(readDataLambda[i])
                                 #Log the input vector
                                 mvInputVectors.append(mvInputVector)
                                 #Log the output vector
-                                mvOutputVectors.append(dataLambda[:-1])
+                                mvOutputVectors.append(readDataLambda[:-1])
 
                     except:
                         # if an error occurs, print the line that it failed to read
                         print("Error reading line", lineCount)
                     lineCount += 1
-        if (vectorValuedFunction):
+        if vectorValuedFunction:
             mvInputVectors = np.array(mvInputVector)
             mvOutputVectors = np.array(mvOutputVectors)
         else:
@@ -191,20 +177,25 @@ def parseData():
 
 
 logging.basicConfig(level=logging.ERROR)
+
+
 def runModel(shouldShow):
-    model = runData(True)
-    modelString = ""
+    model = runData(shouldShow)
+    m_modelString = ""
     for i in range(len(model)):
-      xValue = model[i]
-      if abs(xValue) < deadband:
-        xValue = 0
-      #Truncates value to the amount of decimal places specified in the variable (done so that floating-point error is negligible)
-      xValue *= math.pow(10, keptDecimalPlaces)
-      xValue = math.trunc(xValue)
-      xValue /= math.pow(10, keptDecimalPlaces)
-      modelString += str(xValue) + ","
-    modelString = modelString[:-1]
-    return modelString
+        xValue = model[i]
+        if abs(xValue) < deadband:
+            xValue = 0
+        # Truncates value to the amount of decimal places specified in the variable (done so that floating-point
+        # error is negligible)
+        xValue *= math.pow(10, keptDecimalPlaces)
+        xValue = math.trunc(xValue)
+        xValue /= math.pow(10, keptDecimalPlaces)
+        m_modelString += str(xValue) + ","
+    m_modelString = m_modelString[:-1]
+    return m_modelString
+
+
 while not NetworkTables.isConnected():
     NetworkTables.initialize(server="10.1.35.2")
     time.sleep(2)
@@ -213,7 +204,6 @@ while not NetworkTables.isConnected():
 
 #connected
 
-#get network Table
 #TODO: make custom loop running faster
 sd = NetworkTables.getTable("SmartDashboard")
 
@@ -231,11 +221,10 @@ while True:
             print("Robot status:", data_from_robot["status"])
             #CALL THE COMPUTE R SQUARED FUNCTION HERE!
         if "shouldUpdateModel" in data_from_robot:
-            input = data_from_robot["shouldUpdateModel"]
-            if (input == "modelUpdate" & inputVariableDimensions == 1):
+            m_input = data_from_robot["shouldUpdateModel"]
+            if m_input == "modelUpdate" and inputVariableDimensions == 1:
                 modelString = runModel(True)
                 data_to_robot["modelUpdated"] = modelString
-
 
     i += 1
     data_to_robot["test"] = i
