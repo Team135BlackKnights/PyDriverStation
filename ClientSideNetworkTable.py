@@ -2,10 +2,20 @@ import time
 import json
 from networktables import NetworkTables
 import numpy as np
+import pandas as pd
 import os
 import matplotlib.pyplot as plt
 import math
-
+from sklearn.datasets import make_regression
+from sklearn.ensemble import GradientBoostingRegressor
+from sklearn.model_selection import RepeatedKFold, cross_val_score
+from sklearn.multioutput import MultiOutputRegressor
+from sklearn.neighbors import KNeighborsRegressor
+from sklearn.preprocessing import PolynomialFeatures
+from sklearn.svm import LinearSVR
+from numpy import absolute
+from numpy import mean
+from numpy import std
 # To see messages from network tables, you must set up logging
 import logging
 
@@ -14,6 +24,7 @@ inputVariableDimensions = 1
 hasParseDataRan = False
 mvInputVector = []
 mvInputVectors = []
+mvOutputVector = []
 mvOutputVectors = []
 
 # Holds data from file
@@ -34,6 +45,9 @@ stdDevList = []
 deadband = .000001
 # Digits to truncate to
 keptDecimalPlaces = 5
+poly = PolynomialFeatures(degree=3, include_bias=False)
+model = GradientBoostingRegressor()
+wrapper = MultiOutputRegressor(model)
 
 
 # r-squared is the proportion of variability in the data accounted for the model, or how accurate the graph is to
@@ -43,7 +57,7 @@ def runData(shouldShow):
     global dataArray
     global mvInputVectors
     global mvOutputVectors
-    parseData()
+    parseData(1)
     n = len(dataArray[0])
     deg = 1
     while n >= 9:
@@ -53,75 +67,33 @@ def runData(shouldShow):
     model = computeRSquared(deg, shouldShow)
     return model
 
+def runValue(value):
+    row = [4.04]
+    row_poly = poly.transform([row])
+    log_yhat = wrapper.predict(row_poly)
+    print(wrapper.estimators_[0][0])
+    yhat = np.exp(log_yhat)
 
-def computeRSquared(deg, shouldShow):
+    # summarize the prediction
+    print('Predicted: %s' % yhat[0])
+def computeRSquared(deg, shouldCheck):
+    global mvInputVectors,mvOutputVectors,wrapper
     # Variable declarations (i typically program in java, sue me)
-    residList.clear()
-    residSquaredList.clear()
-    stdDevList.clear()
-    plt.subplot(graphSubplotSize[0], graphSubplotSize[1], graphSubplotSize[2])
-    plt.plot(dataArray[0], dataArray[1], "ro")
-    # sample number
-    n = len(dataArray[0])
-    # average of output
-    meanY = np.mean(dataArray[1])
-    model = np.polynomial.polynomial.polyfit(dataArray[0], dataArray[1], deg, full=False)
-    graph = np.poly1d(model)
-    # Square individual residuals
-    for i in range(len(dataArray[0])):
-        # Computes residual (Actual minus predicted)
-        residVal = np.polynomial.polynomial.polyval(dataArray[0][i], graph) - dataArray[1][i]
-        # Deadbands the residual
-        if abs(residVal) < deadband:
-            residVal = 0
-        residList.append(residVal)
+    # define base model
+    mvInputVectors_poly = poly.fit_transform(mvInputVectors)
+    log_mvOutputVectors = np.log(mvOutputVectors)
+    # Define the direct multioutput wrapper model
+    # Fit the model on the polynomial features of the dataset
+    wrapper.fit(mvInputVectors_poly, log_mvOutputVectors)
+    # Get the coefficients and intercepts from each LinearSVR estimator
+    #coefficients = [estimator.coef_ for estimator in wrapper.estimators_]
+    #intercepts = [estimator.intercept_ for estimator in wrapper.estimators_]
 
-    for i in range(n):
-        residSquaredList.append(residList[i] * residList[i])
-    # Numerator is the sum of squared residuals
-    rSquaredNum = np.sum(residSquaredList)
-    # Squares the difference between each data point's y coord and the mean, then sums them
-    for i in dataArray[1]:
-        indDiv = (i - meanY)
-        indDiv = indDiv * indDiv
-        stdDevList.append(indDiv)
-    rSquaredDenom = np.sum(stdDevList)
-    # Computes r squared
-    rSquared = 1 - (rSquaredNum / rSquaredDenom)
-    # Outputs r squared
-    print("R Squared:", rSquared, "\n")
-    if shouldShow:
-
-        maxMinusMin = max(dataArray[0]) - min(dataArray[0])
-
-        # intended to graph the polynomial from 15 percent of the range below the min to 15 percent of the range
-        # above the maximum values that show minimum and maximum values to graph
-        graphMin = -.33 * maxMinusMin + min(dataArray[0])
-        graphMax = .33 * maxMinusMin + max(dataArray[0])
-        indSegLen = (graphMax - graphMin) / 50
-        # We use 50 segments to approximate the graph with edges included
-        for i in range(50):
-            functXVal = graphMin + (i * indSegLen)
-            functXList.append(functXVal)
-            functionOut.append(np.polynomial.polynomial.polyval(functXVal, graph))
-
-        plt.subplot(graphSubplotSize[0], graphSubplotSize[1], graphSubplotSize[2])
-        plt.plot(functXList, functionOut)
-        plt.title("X vs Y")
-        # Graphs lists of points
-        plt.subplot(graphSubplotSize[0], graphSubplotSize[1], (graphSubplotSize[2] + 1))
-        plt.plot(dataArray[0], residList, "ro")
-        # Creates the x-axis (for better referencing)
-        xValues = [min(dataArray[0]), max(dataArray[0])]
-        yValues = [0, 0]
-        plt.plot(xValues, yValues)
-        plt.title("Residuals")
-        plt.show()
     return model
 
 
-def parseData():
-    global hasParseDataRan, mvInputVector, dataArray, mvInputVectors, mvOutputVectors
+def parseData(outputs):
+    global hasParseDataRan, dataArray, mvInputVectors, mvOutputVectors
     if not hasParseDataRan:
         # This reads all txt files in sample_data, and puts them all in a nx2 matrix (n being amount of rows,
         # 2 being the amount of columns) reads every file in the sample_data folder
@@ -140,31 +112,33 @@ def parseData():
 
                             # x vals are data array 0 y vals are data array 1
                             readDataLambda = line.split(",")
+                            #Multiple input variables
+                            mvInputVector = []
+                            for i in range(0, len(readDataLambda) - outputs):  #all except the last value in the list
+                                #Create a new input vector for the function
+                                mvInputVector.append(float(readDataLambda[i]))
+                                print(readDataLambda[i])
+                            #Log the input vector
 
-                            if len(readDataLambda) == 2:  #if input variable is 1
-                                dataArray[0].append(float(readDataLambda[0]))
-                                dataArray[1].append(float(readDataLambda[1]))
-                            else:  #Multiple input variables
-                                mvInputVector = []
-                                for i in range(0, len(readDataLambda) - 2):  #all except the last value in the list
-                                    #Create a new input vector for the function
-                                    mvInputVector.append(readDataLambda[i])
-                                #Log the input vector
-                                mvInputVectors.append(mvInputVector)
-                                #Log the output vector
-                                mvOutputVectors.append(readDataLambda[:-1])
+                            mvInputVectors.append(mvInputVector)
+                            #Log the output vector
 
+                            mvOutputVector = []
+                            for i in range(len(readDataLambda) - outputs, len(readDataLambda)):  #all except the last value in the list
+                                #Create a new input vector for the function
+                                mvOutputVector.append(float(readDataLambda[i]))
+                            mvOutputVectors.append(mvOutputVector)
+                            #dataArray = np.array(mvInputVectors,mvOutputVectors)
                     except:
                         # if an error occurs, print the line that it failed to read
                         print("Error reading line", lineCount)
                     lineCount += 1
-        if vectorValuedFunction:
-            mvInputVectors = np.array(mvInputVector)
-            mvOutputVectors = np.array(mvOutputVectors)
-        else:
-            # converts read values into np array for regression
-            dataArray = np.array(dataArray)
-            # For Debugging, makes sure that your data looks good
+                reader.close()
+        mvInputVectors = np.array(mvInputVectors)
+        mvOutputVectors = np.array(mvOutputVectors)
+        print(mvInputVectors)
+        print(mvOutputVectors)
+
         """print("Data Array X Values:")
         print(dataArray[0])
         print(" ")
@@ -181,19 +155,7 @@ logging.basicConfig(level=logging.ERROR)
 
 def runModel(shouldShow):
     model = runData(shouldShow)
-    m_modelString = ""
-    for i in range(len(model)):
-        xValue = model[i]
-        if abs(xValue) < deadband:
-            xValue = 0
-        # Truncates value to the amount of decimal places specified in the variable (done so that floating-point
-        # error is negligible)
-        xValue *= math.pow(10, keptDecimalPlaces)
-        xValue = math.trunc(xValue)
-        xValue /= math.pow(10, keptDecimalPlaces)
-        m_modelString += str(xValue) + ","
-    m_modelString = m_modelString[:-1]
-    return m_modelString
+    return "hi"
 
 
 while not NetworkTables.isConnected():
@@ -212,7 +174,7 @@ data_to_robot = {
 }
 i = 0
 lastSentUpdate = 0
-print("ruin")
+print("Connected.")
 while True:
     # Read JSON from robot
     data_to_robot.clear()
@@ -220,22 +182,25 @@ while True:
     if json_response != "default":
         data_from_robot = json.loads(json_response)
 
-            #print("Robot status:", data_from_robot["status"])
-            #CALL THE COMPUTE R SQUARED FUNCTION HERE!
+        #print("Robot status:", data_from_robot["status"])
+        #CALL THE COMPUTE R SQUARED FUNCTION HERE!
         if "shouldUpdateModel" in data_from_robot:
-            if time.time() - lastSentUpdate >.5:
+            if time.time() - lastSentUpdate > .5:
                 print("DO")
                 lastSentUpdate = time.time()
                 m_input = data_from_robot["shouldUpdateModel"]
                 if m_input == "modelUpdate" and inputVariableDimensions == 1:
-                    modelString = runModel(True)
+                    modelString = runModel(False)
                     data_to_robot["modelUpdated"] = modelString
+                    print("update time" + str(time.time() - lastSentUpdate))
+                    currentTime = time.time()
+                    runValue(4.5)
+                    print("running value time: " + str(time.time() - currentTime))
 
     i += 1
     data_to_robot["test"] = i
     # Convert dictionary to JSON string
     json_data_to_robot = json.dumps(data_to_robot)
-
     # Send JSON to robot
     sd.putString("ToRobot", json_data_to_robot)
     time.sleep(0.105)
