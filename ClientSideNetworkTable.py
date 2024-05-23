@@ -1,12 +1,14 @@
 import time
 import json
+
+import pandas as pd
 from networktables import NetworkTables
-import datetime
 import numpy as np
 import os
 import matplotlib.pyplot as plt
 from sklearn.ensemble import GradientBoostingRegressor
 from sklearn.inspection import permutation_importance
+from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from sklearn.multioutput import MultiOutputRegressor
 from sklearn.preprocessing import PolynomialFeatures
 import random
@@ -14,15 +16,16 @@ import random
 # To see messages from network tables, you must set up logging
 import logging
 import joblib
+
 vectorValuedFunction = False
-#Checks to see if it has multiple inputs
-inputVariableDimensions = 1
 hasParseDataRan = False
 mvInputVector = []
 mvInputVectors = []
 mvOutputVector = []
 mvOutputVectors = []
 variableNames = []
+inputNames = []
+outputNames = []
 # Holds data from file
 dataArray = [[], []]
 graphSubplotSize = [2, 2, 1]
@@ -80,53 +83,59 @@ def computeRSquared(deg, shouldCheck):
     global mvInputVectors, mvOutputVectors, wrapper, poly
     poly = PolynomialFeatures(degree=deg, include_bias=False)
     # define base model
-    print(len(mvInputVectors))
-    print(len(mvOutputVectors))
     mvInputVectors_poly = poly.fit_transform(mvInputVectors)
     #log_mvOutputVectors = np.log(mvOutputVectors)
-    # Define the direct multioutput wrapper model
+    # Define the direct multi output wrapper model
     # Fit the model on the polynomial features of the dataset
     wrapper.fit(mvInputVectors_poly, mvOutputVectors)
     model.fit(mvInputVectors_poly, mvOutputVectors)
-    # Get the coefficients and intercepts from each LinearSVR estimator
-    #coefficients = [estimator.coef_ for estimator in wrapper.estimators_]
-    #intercepts = [estimator.intercept_ for estimator in wrapper.estimators_]
+    if shouldCheck:
+        predictions = wrapper.predict(testInput)
+        overall_mse = mean_squared_error(testOutput, predictions)
+        overall_mae = mean_absolute_error(testOutput, predictions)
+        overall_r2 = r2_score(testOutput, predictions)
+
+        print(f"Overall Mean Squared Error: {overall_mse}")
+        print(f"Overall Mean Absolute Error: {overall_mae}")
+        print(f"Overall R^2 Score: {overall_r2}")
 
 
 def graphImportance():
-    global x_test
-    global y_test
     global model
-    feature_importance = model.feature_importances_
-    sorted_idx = np.argsort(feature_importance)
-    pos = np.arange(sorted_idx.shape[0]) + 0.5
-    fig = plt.figure(figsize=(12, 6))
-    plt.subplot(1, 2, 1)
-    plt.barh(pos, feature_importance[sorted_idx], align="center")
-    plt.yticks(pos, np.array(variableNames)[sorted_idx])
-    plt.title("Feature Importance (MDI)")
+    feature_importances = []
+    for regressor in wrapper.estimators_:
+        feature_importances.append(regressor.feature_importances_)
+    feature_importances = pd.DataFrame(feature_importances, columns=inputNames)
+    num_outputs = feature_importances.shape[0]
+    fig, axes = plt.subplots(num_outputs, 1, figsize=(12, 6 * num_outputs))
+
+    if num_outputs == 1:
+        axes = [axes]  # Ensure axes is iterable when there's only one output
+
+    for i, ax in enumerate(axes):
+        sorted_idx = np.argsort(feature_importances.iloc[i])
+        pos = np.arange(sorted_idx.shape[0]) + 0.5
+        ax.barh(pos, feature_importances.iloc[i, sorted_idx], align="center")
+        ax.set_yticks(pos)
+        ax.set_yticklabels(np.array(inputNames)[sorted_idx])
+        ax.set_title(f"Feature Importance for Output {i + 1} ({outputNames[i]})")
+
+    plt.tight_layout()
+    plt.show()
 
     result = permutation_importance(
-        model, testInput, testOutput, n_repeats=10, random_state=42, n_jobs=-1
+        wrapper, testInput, testOutput, n_repeats=10, random_state=42, n_jobs=-1
     )
     sorted_idx = result.importances_mean.argsort()
     plt.subplot(1, 2, 2)
     plt.boxplot(
         result.importances[sorted_idx].T,
         vert=False,
-        tick_labels=np.array(variableNames)[sorted_idx],
+        tick_labels=np.array(inputNames)[sorted_idx],
     )
     plt.title("Permutation Importance (test set)")
     fig.tight_layout()
     plt.show()
-
-
-def subtract_lists(list1, list2):
-    result = []
-    for element in list1:
-        if element not in list2:
-            result.append(element)
-    return result
 
 
 def parseData(outputs):
@@ -148,7 +157,12 @@ def parseData(outputs):
                             variableNames = line.split(",")
                             variableNames[0] = variableNames[0][1:]
                             variableNames[len(variableNames) - 1] = variableNames[len(variableNames) - 1][:-1]
-                            print(variableNames)
+                            for i in range(len(variableNames) - outputs):
+                                inputNames.append(variableNames[i])
+                                variableNames.pop(i)
+                            for i in range(len(variableNames) - outputs, len(variableNames)):
+                                outputNames.append(variableNames[i])
+                                variableNames.pop(i)
                         else:
                             # x vals are data array 0 y vals are data array 1
                             readDataLambda = line.split(",")
@@ -168,23 +182,26 @@ def parseData(outputs):
                                 #Create a new input vector for the function
                                 mvOutputVector.append(float(readDataLambda[i]))
                             mvOutputVectors.append(mvOutputVector)
-                    except:
+                    except ValueError:
                         # if an error occurs, print the line that it failed to read
-                        print("Error reading line", lineCount)
+                        print("ValueError reading line", lineCount, "\nMODEL WILL CRASH SHORTLY.")
+                    except TypeError:
+                        print("TypeError reading line", lineCount, "\nMODEL WILL CRASH SHORTLY.")
                     lineCount += 1
                 reader.close()
-        sample = int(len(mvInputVectors)*.2)
+        sample = int(len(mvInputVectors) * .4)
         # Generate a list of indices from 0 to len(mvInputVectors) - 1
         indices = list(range(len(mvInputVectors)))
-
         # Randomly sample indices
         sampled_indices = random.sample(indices, sample)
-
         # Create testInput and testOutput lists based on the sampled indices
-        testInput = [mvInputVectors[i] for i in sampled_indices]
-        testOutput = [mvOutputVectors[i] for i in sampled_indices]
-        mvInputVectors = subtract_lists(mvInputVectors, testInput)
-        mvOutputVectors = subtract_lists(mvOutputVectors, testOutput)
+        offset = 0
+        for j in sampled_indices:
+            testOutput.append(mvOutputVectors[j - offset])
+            mvOutputVectors.pop(j - offset)
+            testInput.append(mvInputVectors[j - offset])
+            mvInputVectors.pop(j - offset)
+            offset += 1
         mvInputVectors = np.array(mvInputVectors)
         mvOutputVectors = np.array(mvOutputVectors)
         testInput = np.array(testInput)
@@ -206,23 +223,43 @@ def parseData(outputs):
 
 logging.basicConfig(level=logging.ERROR)
 
+
 def saveModel():
-    #TODO: Local path for this
-    timestamp = datetime.datetime.now()
-    directory = "C:/Users/robot/Documents/GitHub/kiwiBot328/PyDriverStation/Models/"+str(timestamp)
+    timestamp = time.strftime("%m%d-%H%M%S")
+    directory = "Models/" + str(timestamp)
     os.makedirs(directory)
-    joblib.dump(poly, directory+"/"+"PolynomialFeatures")
-    joblib.dump(wrapper, directory+"/"+"wrapper")
+    joblib.dump(poly, directory + "/" + "PolynomialFeatures")
+    joblib.dump(wrapper, directory + "/" + "wrapper")
 
 
-modelString = runData(False)
+def load_latest_model(backupShower):
+    global poly, wrapper
+    # Get list of subdirectories in the Models directory
+    model_directories = [f.path for f in os.scandir("Models") if f.is_dir()]
+
+    if not model_directories:
+        print("No models found. Running Model.")
+        runData(backupShower)
+    # Sort directories by creation time (modification time of the directory)
+    else:
+        latest_directory = max(model_directories, key=os.path.getmtime)
+
+        # Load model from the latest directory
+        poly = joblib.load(os.path.join(latest_directory, "PolynomialFeatures"))
+        wrapper = joblib.load(os.path.join(latest_directory, "wrapper"))
+
+
+parseData(1)
+load_latest_model(True)
 graphImportance()
+
+#saveModel()
 while not NetworkTables.isConnected():
     NetworkTables.initialize(server="10.1.35.2")
     print("Connecting to Robot")
     time.sleep(2)
     if NetworkTables.isConnected():
-        break;
+        break
     print("Failed")
     NetworkTables.initialize(server="localhost")
     print("Connecting to Local")
@@ -230,7 +267,7 @@ while not NetworkTables.isConnected():
 
 #connected
 
-#TODO: make custom loop running faster
+#If this isn't fast enough (100ms) then you'll need a custom Entry.
 sd = NetworkTables.getTable("SmartDashboard")
 
 data_to_robot = {
@@ -239,34 +276,36 @@ data_to_robot = {
 i = 0
 lastSentUpdate = 0
 print("Connected.")
+last_execution_time = time.time()
 while True:
-    # Read JSON from robot
-    data_to_robot.clear()
-    json_response = sd.getString("FromRobot", "default")
-    if json_response != "default":
-        data_from_robot = json.loads(json_response)
+    current_time = time.time()
+    if current_time - last_execution_time > .11:
+        last_execution_time = current_time
+        # Read JSON from robot
+        data_to_robot.clear()
+        json_response = sd.getString("FromRobot", "default")
+        if json_response != "default":
+            data_from_robot = json.loads(json_response)
 
-        #print("Robot status:", data_from_robot["status"])
-        #CALL THE COMPUTE R SQUARED FUNCTION HERE!
-        if "shouldUpdateModel" in data_from_robot:
-            if time.time() - lastSentUpdate > .5:
-                print("DO")
-                lastSentUpdate = time.time()
-                m_input = data_from_robot["shouldUpdateModel"]
-                if m_input == "modelUpdate" and inputVariableDimensions == 1:
-                    modelString = runData(False)
-                    data_to_robot["modelUpdated"] = modelString
-                    print("update time" + str(time.time() - lastSentUpdate))
-                    print(runValue(4.5))
-                    graphImportance()
-        if "modelDistance" in data_from_robot:
-            m_distance = data_from_robot["modelDistance"]
-            angle = runValue(m_distance)[0]
-            data_to_robot["predictedAngle"] = str(angle)
-    i += 1
-    data_to_robot["time"] = i
-    # Convert dictionary to JSON string
-    json_data_to_robot = json.dumps(data_to_robot)
-    # Send JSON to robot
-    sd.putString("ToRobot", json_data_to_robot)
-    time.sleep(0.105)
+            #print("Robot status:", data_from_robot["status"])
+            #CALL THE COMPUTE R SQUARED FUNCTION HERE!
+            if "shouldUpdateModel" in data_from_robot:
+                if time.time() - lastSentUpdate > .5:
+                    print("DO")
+                    lastSentUpdate = time.time()
+                    m_input = data_from_robot["shouldUpdateModel"]
+                    if m_input == "modelUpdate":
+                        runData(False)
+                        print("update time" + str(time.time() - lastSentUpdate))
+            if "modelDistance" in data_from_robot:
+                m_distance = float(data_from_robot["modelDistance"])
+                timeOld = time.time()
+                outputs = runValue(m_distance)
+                print("time to get val:" + str(time.time() - timeOld))
+                data_to_robot["outputs"] = str(outputs)
+        i += 1
+        data_to_robot["time"] = i
+        # Convert dictionary to JSON string
+        json_data_to_robot = json.dumps(data_to_robot)
+        # Send JSON to robot
+        sd.putString("ToRobot", json_data_to_robot)
