@@ -2,20 +2,13 @@ import time
 import json
 from networktables import NetworkTables
 import numpy as np
-import pandas as pd
 import os
 import matplotlib.pyplot as plt
-import math
-from sklearn.datasets import make_regression
 from sklearn.ensemble import GradientBoostingRegressor
-from sklearn.model_selection import RepeatedKFold, cross_val_score
+from sklearn.inspection import permutation_importance
 from sklearn.multioutput import MultiOutputRegressor
-from sklearn.neighbors import KNeighborsRegressor
 from sklearn.preprocessing import PolynomialFeatures
-from sklearn.svm import LinearSVR
-from numpy import absolute
-from numpy import mean
-from numpy import std
+
 # To see messages from network tables, you must set up logging
 import logging
 
@@ -26,7 +19,7 @@ mvInputVector = []
 mvInputVectors = []
 mvOutputVector = []
 mvOutputVectors = []
-
+variableNames = []
 # Holds data from file
 dataArray = [[], []]
 graphSubplotSize = [2, 2, 1]
@@ -57,42 +50,68 @@ def runData(shouldShow):
     global dataArray
     global mvInputVectors
     global mvOutputVectors
-    parseData(1) #number of outputs
+    parseData(1)  #number of outputs
     n = len(dataArray[0])
     deg = 1
     while n >= 9:
         n -= 10
         deg += 1
     #print("Based on the rule of 10, the polynomial degree should be:", deg)
-    model = computeRSquared(deg, shouldShow)
-    return model
+    computeRSquared(deg, shouldShow)
+
 
 def runValue(value):
-    row = [4.04]
+    row = [value]
     row_poly = poly.transform([row])
-    log_yhat = wrapper.predict(row_poly)
-    yhat = np.exp(log_yhat)
+    #log_yhat = wrapper.predict(row_poly)
+    yhat = wrapper.predict(row_poly)
     # summarize the prediction
     print('Predicted: %s' % yhat[0])
+    return yhat[0]
+
+
 def computeRSquared(deg, shouldCheck):
-    global mvInputVectors,mvOutputVectors,wrapper, poly
+    global mvInputVectors, mvOutputVectors, wrapper, poly
     poly = PolynomialFeatures(degree=deg, include_bias=False)
     # Variable declarations (i typically program in java, sue me)
     # define base model
     mvInputVectors_poly = poly.fit_transform(mvInputVectors)
-    log_mvOutputVectors = np.log(mvOutputVectors)
+    #log_mvOutputVectors = np.log(mvOutputVectors)
     # Define the direct multioutput wrapper model
     # Fit the model on the polynomial features of the dataset
-    wrapper.fit(mvInputVectors_poly, log_mvOutputVectors)
+    wrapper.fit(mvInputVectors_poly, mvOutputVectors)
     # Get the coefficients and intercepts from each LinearSVR estimator
     #coefficients = [estimator.coef_ for estimator in wrapper.estimators_]
     #intercepts = [estimator.intercept_ for estimator in wrapper.estimators_]
 
-    return model
+
+def graphImportance():
+    feature_importance = model.feature_importances_
+    sorted_idx = np.argsort(feature_importance)
+    pos = np.arange(sorted_idx.shape[0]) + 0.5
+    fig = plt.figure(figsize=(12, 6))
+    plt.subplot(1, 2, 1)
+    plt.barh(pos, feature_importance[sorted_idx], align="center")
+    plt.yticks(pos, np.array(variableNames)[sorted_idx])
+    plt.title("Feature Importance (MDI)")
+
+    result = permutation_importance(
+        model, X_test, y_test, n_repeats=10, random_state=42, n_jobs=2
+    )
+    sorted_idx = result.importances_mean.argsort()
+    plt.subplot(1, 2, 2)
+    plt.boxplot(
+        result.importances[sorted_idx].T,
+        vert=False,
+        labels=np.array(variableNames)[sorted_idx],
+    )
+    plt.title("Permutation Importance (test set)")
+    fig.tight_layout()
+    plt.show()
 
 
 def parseData(outputs):
-    global hasParseDataRan, dataArray, mvInputVectors, mvOutputVectors
+    global hasParseDataRan, dataArray, mvInputVectors, mvOutputVectors, variableNames
     if not hasParseDataRan:
         # This reads all txt files in sample_data, and puts them all in a nx2 matrix (n being amount of rows,
         # 2 being the amount of columns) reads every file in the sample_data folder
@@ -107,8 +126,9 @@ def parseData(outputs):
 
                     try:
                         # so it doesn't read headings of txt files, or the column names
-                        if lineCount > 1:
-
+                        if lineCount == 1:
+                            variableNames = line.split(",")
+                        else:
                             # x vals are data array 0 y vals are data array 1
                             readDataLambda = line.split(",")
                             #Multiple input variables
@@ -123,7 +143,8 @@ def parseData(outputs):
                             #Log the output vector
 
                             mvOutputVector = []
-                            for i in range(len(readDataLambda) - outputs, len(readDataLambda)):  #all except the last value in the list
+                            for i in range(len(readDataLambda) - outputs,
+                                           len(readDataLambda)):  #all except the last value in the list
                                 #Create a new input vector for the function
                                 mvOutputVector.append(float(readDataLambda[i]))
                             mvOutputVectors.append(mvOutputVector)
@@ -150,7 +171,6 @@ def parseData(outputs):
 
 
 logging.basicConfig(level=logging.ERROR)
-
 
 while not NetworkTables.isConnected():
     NetworkTables.initialize(server="10.1.35.2")
@@ -187,6 +207,7 @@ while True:
                     modelString = runData(False)
                     data_to_robot["modelUpdated"] = modelString
                     print("update time" + str(time.time() - lastSentUpdate))
+                    print(runValue(4.5))
         if "modelDistance" in data_from_robot:
             m_distance = data_from_robot["modelDistance"]
             angle = runValue(m_distance)[0]
