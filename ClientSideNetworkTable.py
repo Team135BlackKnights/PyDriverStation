@@ -1,6 +1,7 @@
 import time
 import json
 from networktables import NetworkTables
+import datetime
 import numpy as np
 import os
 import matplotlib.pyplot as plt
@@ -12,7 +13,7 @@ import random
 
 # To see messages from network tables, you must set up logging
 import logging
-
+import joblib
 vectorValuedFunction = False
 #Checks to see if it has multiple inputs
 inputVariableDimensions = 1
@@ -79,7 +80,6 @@ def runValue(value):
 def computeRSquared(deg, shouldCheck):
     global mvInputVectors, mvOutputVectors, wrapper, poly
     poly = PolynomialFeatures(degree=deg, include_bias=False)
-    # Variable declarations (i typically program in java, sue me)
     # define base model
     mvInputVectors_poly = poly.fit_transform(mvInputVectors)
     #log_mvOutputVectors = np.log(mvOutputVectors)
@@ -186,6 +186,26 @@ def parseData(outputs):
 
 
 logging.basicConfig(level=logging.ERROR)
+def saveModel():
+    #TODO: Local path for this
+    timestamp = datetime.datetime.now()
+    directory = "C:/Users/robot/Documents/GitHub/kiwiBot328/PyDriverStation/Models/"+str(timestamp)
+    os.makedirs(directory)
+    joblib.dump(poly, directory+"/"+"PolynomialFeatures")
+    joblib.dump(wrapper, directory+"/"+"wrapper")
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 while not NetworkTables.isConnected():
     NetworkTables.initialize(server="10.1.35.2")
