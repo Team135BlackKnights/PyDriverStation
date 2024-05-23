@@ -8,11 +8,13 @@ from sklearn.ensemble import GradientBoostingRegressor
 from sklearn.inspection import permutation_importance
 from sklearn.multioutput import MultiOutputRegressor
 from sklearn.preprocessing import PolynomialFeatures
+import random
 
 # To see messages from network tables, you must set up logging
 import logging
 
-vectorValuedFunction = False  #Checks to see if it has multiple inputs
+vectorValuedFunction = False
+#Checks to see if it has multiple inputs
 inputVariableDimensions = 1
 hasParseDataRan = False
 mvInputVector = []
@@ -41,6 +43,10 @@ keptDecimalPlaces = 5
 poly = PolynomialFeatures(degree=3, include_bias=False)
 model = GradientBoostingRegressor()
 wrapper = MultiOutputRegressor(model)
+#Stores values for testing
+global x_test, y_test
+x_test = []
+y_test = []
 
 
 # r-squared is the proportion of variability in the data accounted for the model, or how accurate the graph is to
@@ -86,6 +92,8 @@ def computeRSquared(deg, shouldCheck):
 
 
 def graphImportance():
+    global x_test
+    global y_test
     feature_importance = model.feature_importances_
     sorted_idx = np.argsort(feature_importance)
     pos = np.arange(sorted_idx.shape[0]) + 0.5
@@ -96,7 +104,7 @@ def graphImportance():
     plt.title("Feature Importance (MDI)")
 
     result = permutation_importance(
-        model, X_test, y_test, n_repeats=10, random_state=42, n_jobs=2
+        model, x_test, y_test, n_repeats=10, random_state=42, n_jobs=2
     )
     sorted_idx = result.importances_mean.argsort()
     plt.subplot(1, 2, 2)
@@ -123,7 +131,7 @@ def parseData(outputs):
                 lineCount = 0
 
                 for line in reader:
-
+                    generatedNumber = random.randint(0, 5)
                     try:
                         # so it doesn't read headings of txt files, or the column names
                         if lineCount == 1:
@@ -137,18 +145,25 @@ def parseData(outputs):
                                 #Create a new input vector for the function
                                 mvInputVector.append(float(readDataLambda[i]))
                                 print(readDataLambda[i])
-                            #Log the input vector
-
-                            mvInputVectors.append(mvInputVector)
-                            #Log the output vector
+                            #We use a Simple Random Sample for test data. If the number equals this value we use it
+                            if generatedNumber == 0:
+                                x_test.append(mvInputVector)
+                            else:
+                                #Log the input vector
+                                mvInputVectors.append(mvInputVector)
 
                             mvOutputVector = []
                             for i in range(len(readDataLambda) - outputs,
                                            len(readDataLambda)):  #all except the last value in the list
                                 #Create a new input vector for the function
                                 mvOutputVector.append(float(readDataLambda[i]))
-                            mvOutputVectors.append(mvOutputVector)
-                            #dataArray = np.array(mvInputVectors,mvOutputVectors)
+                            #If the random number equals zero, send the point to test array
+                            if generatedNumber == 0:
+                                y_test.append(mvOutputVector)
+                            else:
+                                # Else log the output vector
+                                mvOutputVectors.append(mvOutputVector)
+                                #dataArray = np.array(mvInputVectors,mvOutputVectors)
                     except:
                         # if an error occurs, print the line that it failed to read
                         print("Error reading line", lineCount)
