@@ -189,8 +189,13 @@ logging.basicConfig(level=logging.ERROR)
 
 while not NetworkTables.isConnected():
     NetworkTables.initialize(server="10.1.35.2")
+    print("Connecting to Robot")
     time.sleep(2)
+    if NetworkTables.isConnected():
+        break;
+    print("Failed")
     NetworkTables.initialize(server="localhost")
+    print("Connecting to Local")
     time.sleep(2)
 
 #connected
