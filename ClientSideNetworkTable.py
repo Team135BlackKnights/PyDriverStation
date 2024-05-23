@@ -45,9 +45,8 @@ poly = PolynomialFeatures(degree=3, include_bias=False)
 model = GradientBoostingRegressor()
 wrapper = MultiOutputRegressor(model)
 #Stores values for testing
-global x_test, y_test
-x_test = []
-y_test = []
+testInput = []
+testOutput = []
 
 
 # r-squared is the proportion of variability in the data accounted for the model, or how accurate the graph is to
@@ -81,11 +80,14 @@ def computeRSquared(deg, shouldCheck):
     global mvInputVectors, mvOutputVectors, wrapper, poly
     poly = PolynomialFeatures(degree=deg, include_bias=False)
     # define base model
+    print(len(mvInputVectors))
+    print(len(mvOutputVectors))
     mvInputVectors_poly = poly.fit_transform(mvInputVectors)
     #log_mvOutputVectors = np.log(mvOutputVectors)
     # Define the direct multioutput wrapper model
     # Fit the model on the polynomial features of the dataset
     wrapper.fit(mvInputVectors_poly, mvOutputVectors)
+    model.fit(mvInputVectors_poly, mvOutputVectors)
     # Get the coefficients and intercepts from each LinearSVR estimator
     #coefficients = [estimator.coef_ for estimator in wrapper.estimators_]
     #intercepts = [estimator.intercept_ for estimator in wrapper.estimators_]
@@ -94,6 +96,7 @@ def computeRSquared(deg, shouldCheck):
 def graphImportance():
     global x_test
     global y_test
+    global model
     feature_importance = model.feature_importances_
     sorted_idx = np.argsort(feature_importance)
     pos = np.arange(sorted_idx.shape[0]) + 0.5
@@ -104,22 +107,30 @@ def graphImportance():
     plt.title("Feature Importance (MDI)")
 
     result = permutation_importance(
-        model, x_test, y_test, n_repeats=10, random_state=42, n_jobs=2
+        model, testInput, testOutput, n_repeats=10, random_state=42, n_jobs=-1
     )
     sorted_idx = result.importances_mean.argsort()
     plt.subplot(1, 2, 2)
     plt.boxplot(
         result.importances[sorted_idx].T,
         vert=False,
-        labels=np.array(variableNames)[sorted_idx],
+        tick_labels=np.array(variableNames)[sorted_idx],
     )
     plt.title("Permutation Importance (test set)")
     fig.tight_layout()
     plt.show()
 
 
+def subtract_lists(list1, list2):
+    result = []
+    for element in list1:
+        if element not in list2:
+            result.append(element)
+    return result
+
+
 def parseData(outputs):
-    global hasParseDataRan, dataArray, mvInputVectors, mvOutputVectors, variableNames
+    global hasParseDataRan, dataArray, mvInputVectors, mvOutputVectors, variableNames, testInput, testOutput
     if not hasParseDataRan:
         # This reads all txt files in sample_data, and puts them all in a nx2 matrix (n being amount of rows,
         # 2 being the amount of columns) reads every file in the sample_data folder
@@ -131,11 +142,13 @@ def parseData(outputs):
                 lineCount = 0
 
                 for line in reader:
-                    generatedNumber = random.randint(0, 5)
                     try:
                         # so it doesn't read headings of txt files, or the column names
-                        if lineCount == 1:
+                        if lineCount == 0:
                             variableNames = line.split(",")
+                            variableNames[0] = variableNames[0][1:]
+                            variableNames[len(variableNames) - 1] = variableNames[len(variableNames) - 1][:-1]
+                            print(variableNames)
                         else:
                             # x vals are data array 0 y vals are data array 1
                             readDataLambda = line.split(",")
@@ -144,35 +157,41 @@ def parseData(outputs):
                             for i in range(0, len(readDataLambda) - outputs):  #all except the last value in the list
                                 #Create a new input vector for the function
                                 mvInputVector.append(float(readDataLambda[i]))
-                                print(readDataLambda[i])
-                            #We use a Simple Random Sample for test data. If the number equals this value we use it
-                            if generatedNumber == 0:
-                                x_test.append(mvInputVector)
-                            else:
-                                #Log the input vector
-                                mvInputVectors.append(mvInputVector)
+                                #print(readDataLambda[i])
+
+                            #Log the input vector
+                            mvInputVectors.append(mvInputVector)
 
                             mvOutputVector = []
                             for i in range(len(readDataLambda) - outputs,
                                            len(readDataLambda)):  #all except the last value in the list
                                 #Create a new input vector for the function
                                 mvOutputVector.append(float(readDataLambda[i]))
-                            #If the random number equals zero, send the point to test array
-                            if generatedNumber == 0:
-                                y_test.append(mvOutputVector)
-                            else:
-                                # Else log the output vector
-                                mvOutputVectors.append(mvOutputVector)
-                                #dataArray = np.array(mvInputVectors,mvOutputVectors)
+                            mvOutputVectors.append(mvOutputVector)
                     except:
                         # if an error occurs, print the line that it failed to read
                         print("Error reading line", lineCount)
                     lineCount += 1
                 reader.close()
+        sample = int(len(mvInputVectors)*.2)
+        # Generate a list of indices from 0 to len(mvInputVectors) - 1
+        indices = list(range(len(mvInputVectors)))
+
+        # Randomly sample indices
+        sampled_indices = random.sample(indices, sample)
+
+        # Create testInput and testOutput lists based on the sampled indices
+        testInput = [mvInputVectors[i] for i in sampled_indices]
+        testOutput = [mvOutputVectors[i] for i in sampled_indices]
+        mvInputVectors = subtract_lists(mvInputVectors, testInput)
+        mvOutputVectors = subtract_lists(mvOutputVectors, testOutput)
         mvInputVectors = np.array(mvInputVectors)
         mvOutputVectors = np.array(mvOutputVectors)
-        print(mvInputVectors)
-        print(mvOutputVectors)
+        testInput = np.array(testInput)
+        testOutput = np.array(testOutput)
+
+        #print(mvInputVectors)
+        #print(mvOutputVectors)
 
         """print("Data Array X Values:")
         print(dataArray[0])
@@ -186,6 +205,7 @@ def parseData(outputs):
 
 
 logging.basicConfig(level=logging.ERROR)
+
 def saveModel():
     #TODO: Local path for this
     timestamp = datetime.datetime.now()
@@ -195,18 +215,8 @@ def saveModel():
     joblib.dump(wrapper, directory+"/"+"wrapper")
 
 
-
-
-
-
-
-
-
-
-
-
-
-
+modelString = runData(False)
+graphImportance()
 while not NetworkTables.isConnected():
     NetworkTables.initialize(server="10.1.35.2")
     print("Connecting to Robot")
@@ -248,6 +258,7 @@ while True:
                     data_to_robot["modelUpdated"] = modelString
                     print("update time" + str(time.time() - lastSentUpdate))
                     print(runValue(4.5))
+                    graphImportance()
         if "modelDistance" in data_from_robot:
             m_distance = data_from_robot["modelDistance"]
             angle = runValue(m_distance)[0]
