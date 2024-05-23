@@ -57,7 +57,7 @@ def runData(shouldShow):
     global dataArray
     global mvInputVectors
     global mvOutputVectors
-    parseData(1)
+    parseData(1) #number of outputs
     n = len(dataArray[0])
     deg = 1
     while n >= 9:
@@ -71,13 +71,12 @@ def runValue(value):
     row = [4.04]
     row_poly = poly.transform([row])
     log_yhat = wrapper.predict(row_poly)
-    print(wrapper.estimators_[0][0])
     yhat = np.exp(log_yhat)
-
     # summarize the prediction
     print('Predicted: %s' % yhat[0])
 def computeRSquared(deg, shouldCheck):
-    global mvInputVectors,mvOutputVectors,wrapper
+    global mvInputVectors,mvOutputVectors,wrapper, poly
+    poly = PolynomialFeatures(degree=deg, include_bias=False)
     # Variable declarations (i typically program in java, sue me)
     # define base model
     mvInputVectors_poly = poly.fit_transform(mvInputVectors)
@@ -153,11 +152,6 @@ def parseData(outputs):
 logging.basicConfig(level=logging.ERROR)
 
 
-def runModel(shouldShow):
-    model = runData(shouldShow)
-    return "hi"
-
-
 while not NetworkTables.isConnected():
     NetworkTables.initialize(server="10.1.35.2")
     time.sleep(2)
@@ -190,15 +184,15 @@ while True:
                 lastSentUpdate = time.time()
                 m_input = data_from_robot["shouldUpdateModel"]
                 if m_input == "modelUpdate" and inputVariableDimensions == 1:
-                    modelString = runModel(False)
+                    modelString = runData(False)
                     data_to_robot["modelUpdated"] = modelString
                     print("update time" + str(time.time() - lastSentUpdate))
-                    currentTime = time.time()
-                    runValue(4.5)
-                    print("running value time: " + str(time.time() - currentTime))
-
+        if "modelDistance" in data_from_robot:
+            m_distance = data_from_robot["modelDistance"]
+            angle = runValue(m_distance)[0]
+            data_to_robot["predictedAngle"] = str(angle)
     i += 1
-    data_to_robot["test"] = i
+    data_to_robot["time"] = i
     # Convert dictionary to JSON string
     json_data_to_robot = json.dumps(data_to_robot)
     # Send JSON to robot
