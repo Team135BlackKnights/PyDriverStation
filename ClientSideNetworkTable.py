@@ -6,7 +6,7 @@ from networktables import NetworkTables
 import numpy as np
 import os
 import matplotlib.pyplot as plt
-from sklearn.ensemble import GradientBoostingRegressor  #, RandomForestRegressor  #Add me if you want RandomForest!
+from sklearn.ensemble import GradientBoostingRegressor  # , RandomForestRegressor  #Add me if you want RandomForest!
 from sklearn.inspection import permutation_importance
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from sklearn.multioutput import MultiOutputRegressor
@@ -16,7 +16,7 @@ import random
 import logging
 import joblib
 
-vectorValuedFunction = False
+# Variable Declarations
 hasParseDataRan = False
 mvInputVector = []
 mvInputVectors = []
@@ -37,16 +37,13 @@ residList = []
 residSquaredList = []
 # Holds all the differences between individual values and the mean
 stdDevList = []
-# Basically "If a coefficient is below this number, set it to zero"
-# If you want completely raw values, set deadband to zero
-deadband = .000001
 # Digits to truncate to
 keptDecimalPlaces = 5
-#If you care more about less overfitting, use
-#model = RandomForestRegressor(n_jobs=-1,n_estimators=100)
+# If you care more about less overfitting, use
+# model = RandomForestRegressor(n_jobs=-1,n_estimators=100)
 model = GradientBoostingRegressor(n_estimators=100)
 wrapper = MultiOutputRegressor(model)
-#Stores values for testing
+# Stores values for testing
 testInput = []
 testOutput = []
 
@@ -58,19 +55,21 @@ def runData(shouldShow, reRunning):
     global mvInputVectors
     global mvOutputVectors
     if not reRunning:
-        parseData(1)  #number of outputs
+        parseData(1)  # number of outputs
 
     computeRSquared(shouldShow)
 
-
+# Compute what the model outputs at a specific input value (think of this as returning f(x))
 def runValue(value):
     row = [[value]]
     yhat = wrapper.predict(row)
     # summarize the prediction
-    #print('Predicted: %s' % yhat[0])
+    # print('Predicted: %s' % yhat[0])
     return yhat[0]
 
 
+# Compute the r squared coefficient. R squared shows how accurate a model is to a graph. This will return a decimal.
+# A value closer to 1 means that the graph is more accurate, a value closer to zero means that it is less accurate
 def computeRSquared(shouldCheck):
     global mvInputVectors, mvOutputVectors, wrapper
     # Fit the model on the polynomial features of the dataset
@@ -86,7 +85,8 @@ def computeRSquared(shouldCheck):
         print(f"Overall Mean Absolute Error: {overall_mae}")
         print(f"Overall R^2 Score: {overall_r2}")
 
-
+# Graph the feature importances. Feature importances show how much a particular variable (property of the
+# input that changes) effects the result of the data.
 def graphImportance():
     global model
     feature_importances = []
@@ -124,7 +124,7 @@ def graphImportance():
     fig.tight_layout()
     plt.show()
 
-
+# Takes the inputs from the data folder and converts them into a program-usable array.
 def parseData(outputs):
     global hasParseDataRan, mvInputVectors, mvOutputVectors, variableNames, testInput, testOutput
     if not hasParseDataRan:
@@ -153,20 +153,20 @@ def parseData(outputs):
                         else:
                             # x vals are data array 0 y vals are data array 1
                             readDataLambda = line.split(",")
-                            #Multiple input variables
+                            # Multiple input variables
                             mvInputVector = []
-                            for i in range(0, len(readDataLambda) - outputs):  #all except the last value in the list
-                                #Create a new input vector for the function
+                            for i in range(0, len(readDataLambda) - outputs):  # all except the last value in the list
+                                # Create a new input vector for the function
                                 mvInputVector.append(float(readDataLambda[i]))
-                                #print(readDataLambda[i])
+                                # print(readDataLambda[i])
 
-                            #Log the input vector
+                            # Log the input vector
                             mvInputVectors.append(mvInputVector)
 
                             mvOutputVector = []
                             for i in range(len(readDataLambda) - outputs,
-                                           len(readDataLambda)):  #all except the last value in the list
-                                #Create a new input vector for the function
+                                           len(readDataLambda)):  # all except the last value in the list
+                                # Create a new input vector for the function
                                 mvOutputVector.append(float(readDataLambda[i]))
                             mvOutputVectors.append(mvOutputVector)
                     except ValueError:
@@ -194,8 +194,8 @@ def parseData(outputs):
         testInput = np.array(testInput)
         testOutput = np.array(testOutput)
 
-        #print(mvInputVectors)
-        #print(mvOutputVectors)
+        # print(mvInputVectors)
+        # print(mvOutputVectors)
 
         """print("Data Array X Values:")
         print(dataArray[0])
@@ -210,15 +210,15 @@ def parseData(outputs):
 
 logging.basicConfig(level=logging.ERROR)
 
-
+# Saves the model as a file on a drive (.pkl)
 def saveModel():
     timestamp = time.strftime("%m%d-%H%M%S")
     directory = "Models/" + str(timestamp)
     os.makedirs(directory)
-    #joblib.dump(poly, directory + "/" + "PolynomialFeatures")
+    # joblib.dump(poly, directory + "/" + "PolynomialFeatures")
     joblib.dump(wrapper, directory + "/" + "wrapper")
 
-
+# Loads the model from the aforementioned files
 def load_latest_model(backupShower):
     global wrapper
     # Get list of subdirectories in the Models directory
@@ -232,7 +232,7 @@ def load_latest_model(backupShower):
         latest_directory = max(model_directories, key=os.path.getmtime)
 
         # Load model from the latest directory
-        #poly = joblib.load(os.path.join(latest_directory, "PolynomialFeatures"))
+        # poly = joblib.load(os.path.join(latest_directory, "PolynomialFeatures"))
         wrapper = joblib.load(os.path.join(latest_directory, "wrapper"))
 
 
@@ -240,8 +240,8 @@ parseData(1)
 load_latest_model(True)
 graphImportance()
 
-
-#saveModel()
+#Keeps trying to make a connection with either the robot or the simulation logs
+# saveModel()
 def connect():
     while not NetworkTables.isConnected():
         NetworkTables.initialize(server="10.1.35.2")
@@ -255,13 +255,13 @@ def connect():
         time.sleep(2)
 
 
-#connected
+# connected
 
-#If this isn't fast enough (100ms) then you'll need a custom Entry.
+# If this isn't fast enough (100ms) then you'll need a custom Entry.
 sd = NetworkTables.getTable("SmartDashboard")
 
 data_to_robot = {
-    "test": "0"  #comma then next value
+    "test": "0"  # comma then next value
 }
 i = 0
 lastSentUpdate = 0
@@ -279,11 +279,11 @@ while True:
         if json_response != "default":
             data_from_robot = json.loads(json_response)
 
-            #print("Robot status:", data_from_robot["status"])
-            #CALL THE COMPUTE R SQUARED FUNCTION HERE!
+            # print("Robot status:", data_from_robot["status"])
+            # CALL THE COMPUTE R SQUARED FUNCTION HERE!
             if "shouldUpdateModel" in data_from_robot:
                 if time.time() - lastSentUpdate > .5:
-                    #print("DO")
+                    # print("DO")
                     lastSentUpdate = time.time()
                     m_input = data_from_robot["shouldUpdateModel"]
                     m_input = m_input[1:-1].replace(" ", "")
@@ -305,7 +305,7 @@ while True:
                 m_distance = float(data_from_robot["modelDistance"])
                 timeOld = time.time()
                 outputs = runValue(m_distance)
-                #print("time to get val:" + str(time.time() - timeOld))
+                # print("time to get val:" + str(time.time() - timeOld))
                 data_to_robot["outputs"] = str(outputs)
         i += 1
         data_to_robot["time"] = i
