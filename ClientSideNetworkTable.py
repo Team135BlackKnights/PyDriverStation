@@ -6,11 +6,10 @@ from networktables import NetworkTables
 import numpy as np
 import os
 import matplotlib.pyplot as plt
-from sklearn.ensemble import GradientBoostingRegressor
+from sklearn.ensemble import GradientBoostingRegressor  #, RandomForestRegressor  #Add me if you want RandomForest!
 from sklearn.inspection import permutation_importance
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from sklearn.multioutput import MultiOutputRegressor
-from sklearn.preprocessing import PolynomialFeatures
 import random
 
 # To see messages from network tables, you must set up logging
@@ -27,7 +26,6 @@ variableNames = []
 inputNames = []
 outputNames = []
 # Holds data from file
-dataArray = [[], []]
 graphSubplotSize = [2, 2, 1]
 dataLambda = []
 # Holds output of the function
@@ -44,8 +42,9 @@ stdDevList = []
 deadband = .000001
 # Digits to truncate to
 keptDecimalPlaces = 5
-poly = PolynomialFeatures(degree=3, include_bias=False)
-model = GradientBoostingRegressor()
+#If you care more about less overfitting, use
+#model = RandomForestRegressor(n_jobs=-1,n_estimators=100)
+model = GradientBoostingRegressor(n_estimators=100)
 wrapper = MultiOutputRegressor(model)
 #Stores values for testing
 testInput = []
@@ -55,40 +54,28 @@ testOutput = []
 # r-squared is the proportion of variability in the data accounted for the model, or how accurate the graph is to
 # the model. Higher r squared is better. 1 means the graph is perfectly accurate, 0 means it is not accurate at all.
 # Formula for r squared is 1-[(sum of differences between actual minus predicted)^2/(sum of y minus the y mean)^2]
-def runData(shouldShow):
-    global dataArray
+def runData(shouldShow, reRunning):
     global mvInputVectors
     global mvOutputVectors
-    parseData(1)  #number of outputs
-    n = len(dataArray[0])
-    deg = 1
-    while n >= 9:
-        n -= 10
-        deg += 1
-    #print("Based on the rule of 10, the polynomial degree should be:", deg)
-    computeRSquared(deg, shouldShow)
+    if not reRunning:
+        parseData(1)  #number of outputs
+
+    computeRSquared(shouldShow)
 
 
 def runValue(value):
-    row = [value]
-    row_poly = poly.transform([row])
-    #log_yhat = wrapper.predict(row_poly)
-    yhat = wrapper.predict(row_poly)
+    row = [[value]]
+    yhat = wrapper.predict(row)
     # summarize the prediction
-    print('Predicted: %s' % yhat[0])
+    #print('Predicted: %s' % yhat[0])
     return yhat[0]
 
 
-def computeRSquared(deg, shouldCheck):
-    global mvInputVectors, mvOutputVectors, wrapper, poly
-    poly = PolynomialFeatures(degree=deg, include_bias=False)
-    # define base model
-    mvInputVectors_poly = poly.fit_transform(mvInputVectors)
-    #log_mvOutputVectors = np.log(mvOutputVectors)
-    # Define the direct multi output wrapper model
+def computeRSquared(shouldCheck):
+    global mvInputVectors, mvOutputVectors, wrapper
     # Fit the model on the polynomial features of the dataset
-    wrapper.fit(mvInputVectors_poly, mvOutputVectors)
-    model.fit(mvInputVectors_poly, mvOutputVectors)
+    wrapper.fit(mvInputVectors, mvOutputVectors)
+    model.fit(mvInputVectors, mvOutputVectors)
     if shouldCheck:
         predictions = wrapper.predict(testInput)
         overall_mse = mean_squared_error(testOutput, predictions)
@@ -139,7 +126,7 @@ def graphImportance():
 
 
 def parseData(outputs):
-    global hasParseDataRan, dataArray, mvInputVectors, mvOutputVectors, variableNames, testInput, testOutput
+    global hasParseDataRan, mvInputVectors, mvOutputVectors, variableNames, testInput, testOutput
     if not hasParseDataRan:
         # This reads all txt files in sample_data, and puts them all in a nx2 matrix (n being amount of rows,
         # 2 being the amount of columns) reads every file in the sample_data folder
@@ -228,24 +215,24 @@ def saveModel():
     timestamp = time.strftime("%m%d-%H%M%S")
     directory = "Models/" + str(timestamp)
     os.makedirs(directory)
-    joblib.dump(poly, directory + "/" + "PolynomialFeatures")
+    #joblib.dump(poly, directory + "/" + "PolynomialFeatures")
     joblib.dump(wrapper, directory + "/" + "wrapper")
 
 
 def load_latest_model(backupShower):
-    global poly, wrapper
+    global wrapper
     # Get list of subdirectories in the Models directory
     model_directories = [f.path for f in os.scandir("Models") if f.is_dir()]
 
     if not model_directories:
         print("No models found. Running Model.")
-        runData(backupShower)
+        runData(backupShower, False)
     # Sort directories by creation time (modification time of the directory)
     else:
         latest_directory = max(model_directories, key=os.path.getmtime)
 
         # Load model from the latest directory
-        poly = joblib.load(os.path.join(latest_directory, "PolynomialFeatures"))
+        #poly = joblib.load(os.path.join(latest_directory, "PolynomialFeatures"))
         wrapper = joblib.load(os.path.join(latest_directory, "wrapper"))
 
 
@@ -253,17 +240,20 @@ parseData(1)
 load_latest_model(True)
 graphImportance()
 
+
 #saveModel()
-while not NetworkTables.isConnected():
-    NetworkTables.initialize(server="10.1.35.2")
-    print("Connecting to Robot")
-    time.sleep(2)
-    if NetworkTables.isConnected():
-        break
-    print("Failed")
-    NetworkTables.initialize(server="localhost")
-    print("Connecting to Local")
-    time.sleep(2)
+def connect():
+    while not NetworkTables.isConnected():
+        NetworkTables.initialize(server="10.1.35.2")
+        print("Connecting to Robot")
+        time.sleep(2)
+        if NetworkTables.isConnected():
+            break
+        print("Failed")
+        NetworkTables.initialize(server="localhost")
+        print("Connecting to Local")
+        time.sleep(2)
+
 
 #connected
 
@@ -278,6 +268,8 @@ lastSentUpdate = 0
 print("Connected.")
 last_execution_time = time.time()
 while True:
+    if not NetworkTables.isConnected():
+        connect()
     current_time = time.time()
     if current_time - last_execution_time > .11:
         last_execution_time = current_time
@@ -291,17 +283,29 @@ while True:
             #CALL THE COMPUTE R SQUARED FUNCTION HERE!
             if "shouldUpdateModel" in data_from_robot:
                 if time.time() - lastSentUpdate > .5:
-                    print("DO")
+                    #print("DO")
                     lastSentUpdate = time.time()
                     m_input = data_from_robot["shouldUpdateModel"]
-                    if m_input == "modelUpdate":
-                        runData(False)
-                        print("update time" + str(time.time() - lastSentUpdate))
+                    m_input = m_input[1:-1].replace(" ", "")
+                    m_input = m_input.split(",")
+                    inputVal = float(m_input[0])
+                    outputVal = float(m_input[1])
+                    new_input_array = np.array([[inputVal]])
+                    new_output_array = np.array([[outputVal]])
+
+                    mvInputVectors = np.concatenate((mvInputVectors, new_input_array), axis=0)
+                    mvOutputVectors = np.concatenate((mvOutputVectors, new_output_array), axis=0)
+
+                    runData(False, True)
+                    print("update time" + str(time.time() - lastSentUpdate))
+                    data_to_robot["modelUpdated"] = str("True")
+                    with open("data/shooterData.txt", 'a') as file:
+                        file.write(f'\n{inputVal},{outputVal}')
             if "modelDistance" in data_from_robot:
                 m_distance = float(data_from_robot["modelDistance"])
                 timeOld = time.time()
                 outputs = runValue(m_distance)
-                print("time to get val:" + str(time.time() - timeOld))
+                #print("time to get val:" + str(time.time() - timeOld))
                 data_to_robot["outputs"] = str(outputs)
         i += 1
         data_to_robot["time"] = i
