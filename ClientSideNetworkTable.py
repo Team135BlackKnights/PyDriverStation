@@ -1,7 +1,7 @@
 import socket
 import time
 import json
-
+import threading
 import pandas as pd
 from networktables import NetworkTables
 import numpy as np
@@ -61,7 +61,10 @@ def runData(shouldShow, reRunning):
 
 
 def sendModel():
-    HOST = '10.1.35.11'  # Orange Pi 5 Address
+    if host == "localhost":
+        HOST = host
+    else:
+        HOST = '10.1.35.11'  # Orange Pi 5 Address
     PORT = 5801  # The same port as used by the server
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -85,7 +88,7 @@ def runValue(value):
     yhat = wrapper.predict(row)
     # summarize the prediction
     # print('Predicted: %s' % yhat[0])
-    return yhat[0]
+    return yhat
 
 
 # Create the neural network model on data.
@@ -243,7 +246,14 @@ def saveModel():
 
 #Must use max(return, key = os.path.getmtime)!!!
 def latest_model():
-    return [f.path for f in os.scandir("Models") if f.is_dir()]
+    directory = "Models"
+
+    # Create the directory if it doesn't exist
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+
+    # Return the list of paths of subdirectories in the directory
+    return [f.path for f in os.scandir(directory) if f.is_dir()]
 
 
 # Loads the model from the aforementioned files
@@ -269,25 +279,27 @@ load_latest_model(True)
 
 
 #graphImportance()
-
+host = ""
 #Keeps trying to make a connection with either the robot or the simulation logs
 def connect():
+    global host
     while not NetworkTables.isConnected():
         NetworkTables.initialize(server="10.1.35.2")
         print("Connecting to Robot")
         time.sleep(2)
         if NetworkTables.isConnected():
+            host = "10.1.35.2"
             break
         print("Failed")
         NetworkTables.initialize(server="localhost")
+        host = "localhost"
         print("Connecting to Local")
         time.sleep(2)
-    print("Connected.")
+    print("Connected to " + host)
 
 
 connect()
 # connected
-# If this isn't fast enough (100ms) then you'll need a custom Entry.
 sd = NetworkTables.getTable("SmartDashboard")
 
 data_to_robot = {
@@ -330,8 +342,8 @@ while True:
                     data_to_robot["modelUpdated"] = str("True")
                     with open("data/shooterData.txt", 'a') as file:
                         file.write(f'\n{inputVal},{outputVal}')
-                    #TODO send that MODEL to a static IP.
-                    sendModel()
+                    send_thread = threading.Thread(target=sendModel)
+                    send_thread.start()
             if "modelDistance" in data_from_robot:
                 m_distance = float(data_from_robot["modelDistance"])
                 timeOld = time.time()
