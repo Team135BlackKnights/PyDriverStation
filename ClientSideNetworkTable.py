@@ -1,3 +1,4 @@
+import socket
 import time
 import json
 
@@ -48,16 +49,35 @@ testInput = []
 testOutput = []
 
 
-# r-squared is the proportion of variability in the data accounted for the model, or how accurate the graph is to
-# the model. Higher r squared is better. 1 means the graph is perfectly accurate, 0 means it is not accurate at all.
-# Formula for r squared is 1-[(sum of differences between actual minus predicted)^2/(sum of y minus the y mean)^2]
+#full data loop, parse, create, and save.
 def runData(shouldShow, reRunning):
     global mvInputVectors
     global mvOutputVectors
     if not reRunning:
         parseData(1)  # number of outputs
 
-    computeRSquared(shouldShow)
+    createModel(shouldShow)
+    saveModel()
+
+
+def sendModel():
+    HOST = '10.1.35.11'  # Orange Pi 5 Address
+    PORT = 5801  # The same port as used by the server
+
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.connect((HOST, PORT))
+        model_directories = latest_model()
+        latest_directory = max(model_directories, key=os.path.getmtime)
+
+        with open(os.path.join(latest_directory, "wrapper"), 'rb') as f:
+            while True:
+                bytes_read = f.read(1024)
+                if not bytes_read:
+                    break
+                s.sendall(bytes_read)
+    print('File sent successfully')
+    return
+
 
 # Compute what the model outputs at a specific input value (think of this as returning f(x))
 def runValue(value):
@@ -68,9 +88,8 @@ def runValue(value):
     return yhat[0]
 
 
-# Compute the r squared coefficient. R squared shows how accurate a model is to a graph. This will return a decimal.
-# A value closer to 1 means that the graph is more accurate, a value closer to zero means that it is less accurate
-def computeRSquared(shouldCheck):
+# Create the neural network model on data.
+def createModel(shouldCheck):
     global mvInputVectors, mvOutputVectors, wrapper
     # Fit the model on the polynomial features of the dataset
     wrapper.fit(mvInputVectors, mvOutputVectors)
@@ -84,6 +103,7 @@ def computeRSquared(shouldCheck):
         print(f"Overall Mean Squared Error: {overall_mse}")
         print(f"Overall Mean Absolute Error: {overall_mae}")
         print(f"Overall R^2 Score: {overall_r2}")
+
 
 # Graph the feature importances. Feature importances show how much a particular variable (property of the
 # input that changes) effects the result of the data.
@@ -123,6 +143,7 @@ def graphImportance():
     plt.title("Permutation Importance (test set)")
     fig.tight_layout()
     plt.show()
+
 
 # Takes the inputs from the data folder and converts them into a program-usable array.
 def parseData(outputs):
@@ -210,6 +231,7 @@ def parseData(outputs):
 
 logging.basicConfig(level=logging.ERROR)
 
+
 # Saves the model as a file on a drive (.pkl)
 def saveModel():
     timestamp = time.strftime("%m%d-%H%M%S")
@@ -218,17 +240,24 @@ def saveModel():
     # joblib.dump(poly, directory + "/" + "PolynomialFeatures")
     joblib.dump(wrapper, directory + "/" + "wrapper")
 
+
+#Must use max(return, key = os.path.getmtime)!!!
+def latest_model():
+    return [f.path for f in os.scandir("Models") if f.is_dir()]
+
+
 # Loads the model from the aforementioned files
 def load_latest_model(backupShower):
     global wrapper
     # Get list of subdirectories in the Models directory
-    model_directories = [f.path for f in os.scandir("Models") if f.is_dir()]
+    model_directories = latest_model()
 
     if not model_directories:
         print("No models found. Running Model.")
         runData(backupShower, False)
     # Sort directories by creation time (modification time of the directory)
     else:
+        parseData(1)
         latest_directory = max(model_directories, key=os.path.getmtime)
 
         # Load model from the latest directory
@@ -236,12 +265,12 @@ def load_latest_model(backupShower):
         wrapper = joblib.load(os.path.join(latest_directory, "wrapper"))
 
 
-parseData(1)
 load_latest_model(True)
-graphImportance()
+
+
+#graphImportance()
 
 #Keeps trying to make a connection with either the robot or the simulation logs
-# saveModel()
 def connect():
     while not NetworkTables.isConnected():
         NetworkTables.initialize(server="10.1.35.2")
@@ -253,10 +282,11 @@ def connect():
         NetworkTables.initialize(server="localhost")
         print("Connecting to Local")
         time.sleep(2)
+    print("Connected.")
 
 
+connect()
 # connected
-
 # If this isn't fast enough (100ms) then you'll need a custom Entry.
 sd = NetworkTables.getTable("SmartDashboard")
 
@@ -265,7 +295,6 @@ data_to_robot = {
 }
 i = 0
 lastSentUpdate = 0
-print("Connected.")
 last_execution_time = time.time()
 while True:
     if not NetworkTables.isConnected():
@@ -301,6 +330,8 @@ while True:
                     data_to_robot["modelUpdated"] = str("True")
                     with open("data/shooterData.txt", 'a') as file:
                         file.write(f'\n{inputVal},{outputVal}')
+                    #TODO send that MODEL to a static IP.
+                    sendModel()
             if "modelDistance" in data_from_robot:
                 m_distance = float(data_from_robot["modelDistance"])
                 timeOld = time.time()
