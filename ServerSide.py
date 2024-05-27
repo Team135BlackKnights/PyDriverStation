@@ -72,7 +72,7 @@ def runValue(value):
     yhat = wrapper.predict(row)
     # summarize the prediction
     # print('Predicted: %s' % yhat[0])
-    return yhat
+    return yhat[0]
 
 def main():
     HOST = 'localhost'  # Listen on all available interfaces
@@ -82,7 +82,7 @@ def main():
     roborio_port = 5802  # Port on which the roboRIO is listening
     timestamp = 0
     load_latest_model()
-    time.sleep(5) #wait for RIO to boot.
+    time.sleep(60) #wait for RIO to boot.
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.bind((HOST, PORT))
         s.listen()
@@ -102,4 +102,9 @@ def main():
 
 
             # Send the received data to the roboRIO
+# BEFORE YOU CALL MAIN MAKE SURE: (only use localhost if sim)
+# 1. HOST (laptop) = 10.1.35.5  OR localhost
+# 2. roborio_ip = 10.1.35.2 OR localhost
+# 3. You have NOT touched send_to_roborio.
+# Moving any lines in this function will CRASH THE PI (robot will keep working), I almost promise you.
 main()

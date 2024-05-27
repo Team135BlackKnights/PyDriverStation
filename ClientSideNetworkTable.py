@@ -47,14 +47,14 @@ wrapper = MultiOutputRegressor(model)
 # Stores values for testing
 testInput = []
 testOutput = []
-
+outputs = 1
 
 #full data loop, parse, create, and save.
 def runData(shouldShow, reRunning):
     global mvInputVectors
     global mvOutputVectors
     if not reRunning:
-        parseData(1)  # number of outputs
+        parseData(outputs)  # number of outputs
 
     createModel(shouldShow)
     saveModel()
@@ -96,7 +96,7 @@ def createModel(shouldCheck):
     global mvInputVectors, mvOutputVectors, wrapper
     # Fit the model on the polynomial features of the dataset
     wrapper.fit(mvInputVectors, mvOutputVectors)
-    model.fit(mvInputVectors, mvOutputVectors)
+    #model.fit(mvInputVectors, mvOutputVectors)
     if shouldCheck:
         predictions = wrapper.predict(testInput)
         overall_mse = mean_squared_error(testOutput, predictions)
@@ -111,7 +111,6 @@ def createModel(shouldCheck):
 # Graph the feature importances. Feature importances show how much a particular variable (property of the
 # input that changes) effects the result of the data.
 def graphImportance():
-    global model
     feature_importances = []
     for regressor in wrapper.estimators_:
         feature_importances.append(regressor.feature_importances_)
@@ -170,10 +169,8 @@ def parseData(outputs):
                             variableNames[len(variableNames) - 1] = variableNames[len(variableNames) - 1][:-1]
                             for i in range(len(variableNames) - outputs):
                                 inputNames.append(variableNames[i])
-                                variableNames.pop(i)
                             for i in range(len(variableNames) - outputs, len(variableNames)):
                                 outputNames.append(variableNames[i])
-                                variableNames.pop(i)
                         else:
                             # x vals are data array 0 y vals are data array 1
                             readDataLambda = line.split(",")
@@ -200,6 +197,7 @@ def parseData(outputs):
                         print("TypeError reading line", lineCount, "\nMODEL WILL CRASH SHORTLY.")
                     lineCount += 1
                 reader.close()
+
         sample = int(len(mvInputVectors) * .4)
         # Generate a list of indices from 0 to len(mvInputVectors) - 1
         indices = list(range(len(mvInputVectors)))
@@ -217,7 +215,6 @@ def parseData(outputs):
         mvOutputVectors = np.array(mvOutputVectors)
         testInput = np.array(testInput)
         testOutput = np.array(testOutput)
-
         # print(mvInputVectors)
         # print(mvOutputVectors)
 
@@ -267,7 +264,7 @@ def load_latest_model(backupShower):
         runData(backupShower, False)
     # Sort directories by creation time (modification time of the directory)
     else:
-        parseData(1)
+        parseData(outputs)
         latest_directory = max(model_directories, key=os.path.getmtime)
 
         # Load model from the latest directory
@@ -328,12 +325,16 @@ while True:
                     lastSentUpdate = time.time()
                     m_input = data_from_robot["shouldUpdateModel"]
                     m_input = m_input[1:-1].replace(" ", "")
+                    dataSave = m_input
                     m_input = m_input.split(",")
-                    inputVal = float(m_input[0])
-                    outputVal = float(m_input[1])
-                    new_input_array = np.array([[inputVal]])
-                    new_output_array = np.array([[outputVal]])
-
+                    inputVals = []
+                    for i in range(len(m_input) - outputs):
+                        inputVals.append(float(m_input[i]))
+                    outputVals = []
+                    for i in range(len(m_input) - outputs, len(m_input)):
+                        outputVals.append(m_input[i])
+                    new_input_array = np.array([inputVals])
+                    new_output_array = np.array([outputVals])
                     mvInputVectors = np.concatenate((mvInputVectors, new_input_array), axis=0)
                     mvOutputVectors = np.concatenate((mvOutputVectors, new_output_array), axis=0)
 
@@ -341,7 +342,7 @@ while True:
                     print("update time" + str(time.time() - lastSentUpdate))
                     data_to_robot["modelUpdated"] = str("True")
                     with open("data/shooterData.txt", 'a') as file:
-                        file.write(f'\n{inputVal},{outputVal}')
+                        file.write(f'\n{dataSave}')
                     send_thread = threading.Thread(target=sendModel)
                     send_thread.start()
             if "modelDistance" in data_from_robot:
