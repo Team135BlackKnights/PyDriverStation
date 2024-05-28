@@ -75,10 +75,10 @@ def runValue(value):
     return yhat[0]
 
 def main():
-    HOST = 'localhost'  # Listen on all available interfaces
+    HOST = '10.1.35.5'  # Listen on all available interfaces
     PORT = 5801  # Port to listen on
     data_to_robot = {'timestamp': '0'}
-    roborio_ip = 'localhost'  # Replace with the actual IP address of the roboRIO
+    roborio_ip = '10.1.35.2'  # Replace with the actual IP address of the roboRIO
     roborio_port = 5802  # Port on which the roboRIO is listening
     timestamp = 0
     load_latest_model()
