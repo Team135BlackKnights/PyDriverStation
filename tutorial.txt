@@ -1,0 +1,86 @@
+# Connect to the OrangePi via SSH
+ssh orangepi@photonvision.local
+
+# Update the system package lists
+sudo apt update
+
+# Upgrade the installed packages
+sudo apt upgrade -y
+
+# Install necessary dependencies and git
+sudo apt install -y build-essential libssl-dev zlib1g-dev libncurses5-dev libncursesw5-dev libreadline-dev libsqlite3-dev libgdbm-dev libdb5.3-dev libbz2-dev libexpat1-dev liblzma-dev tk-dev libffi-dev libgdbm-compat-dev wget git
+
+# Navigate to the source directory
+cd /usr/src
+
+# Download Python 3.12 source code
+sudo wget https://www.python.org/ftp/python/3.12.0/Python-3.12.0.tgz
+
+# Extract the downloaded tarball
+sudo tar xzf Python-3.12.0.tgz
+
+# Change to the Python source directory
+cd Python-3.12.0
+
+# Configure the Python build
+sudo ./configure --enable-optimizations
+
+# Compile and install Python 3.12
+sudo make altinstall
+
+# Verify the Python 3.12 installation
+python3.12 --version
+
+# Ensure pip is installed and upgraded
+sudo /usr/local/bin/python3.12 -m ensurepip --upgrade
+
+# Navigate to the home directory
+cd /home/orangepi
+
+# Clone the repository
+git clone https://github.com/Team135BlackKnights/PyDriverStation.git
+
+# Verify the repository directory name
+ls
+
+# Change to the repository directory
+cd PyDriverStation
+
+# Create a requirements file with necessary packages
+echo -e "joblib\nscikit-learn" > requirements.txt
+
+# Install required Python packages
+sudo /usr/local/bin/python3.12 -m pip install -r requirements.txt
+
+# Create a systemd service file
+sudo touch /etc/systemd/system/custom-ai-server.service
+
+# Edit the systemd service file
+sudo nano /etc/systemd/system/custom-ai-server.service
+# (paste the service file content here and save)
+# [Unit]
+# Description=Service that runs your Python script
+#
+# [Service]
+# WorkingDirectory=/home/orangepi/PyDriverStation
+# ExecStart=/usr/local/bin/python3.12 /home/orangepi/PyDriverStation/script.py
+# Restart=always
+# User=orangepi
+#
+# [Install]
+# WantedBy=multi-user.target
+
+# Set the correct permissions for the service file
+sudo chmod 644 /etc/systemd/system/custom-ai-server.service
+
+# Reload systemd daemon to recognize the new service
+sudo systemctl daemon-reload
+
+# Enable the service to start on boot
+sudo systemctl enable custom-ai-server.service
+
+# Start the service immediately
+sudo systemctl start custom-ai-server.service
+
+# Check the status of the service to ensure it is running
+sudo systemctl status custom-ai-server.service
