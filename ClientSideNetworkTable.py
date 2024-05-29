@@ -47,14 +47,14 @@ wrapper = MultiOutputRegressor(model)
 # Stores values for testing
 testInput = []
 testOutput = []
-outputs = 1
+outputSize = 1
 
 #full data loop, parse, create, and save.
 def runData(shouldShow, reRunning):
     global mvInputVectors
     global mvOutputVectors
     if not reRunning:
-        parseData(outputs)  # number of outputs
+        parseData(outputSize)  # number of outputs
 
     createModel(shouldShow)
     saveModel()
@@ -148,7 +148,7 @@ def graphImportance():
 
 
 # Takes the inputs from the data folder and converts them into a program-usable array.
-def parseData(outputs):
+def parseData(outputSize):
     global hasParseDataRan, mvInputVectors, mvOutputVectors, variableNames, testInput, testOutput
     if not hasParseDataRan:
         # This reads all txt files in sample_data, and puts them all in a nx2 matrix (n being amount of rows,
@@ -167,16 +167,16 @@ def parseData(outputs):
                             variableNames = line.split(",")
                             variableNames[0] = variableNames[0][1:]
                             variableNames[len(variableNames) - 1] = variableNames[len(variableNames) - 1][:-1]
-                            for i in range(len(variableNames) - outputs):
+                            for i in range(len(variableNames) - outputSize):
                                 inputNames.append(variableNames[i])
-                            for i in range(len(variableNames) - outputs, len(variableNames)):
+                            for i in range(len(variableNames) - outputSize, len(variableNames)):
                                 outputNames.append(variableNames[i])
                         else:
                             # x vals are data array 0 y vals are data array 1
                             readDataLambda = line.split(",")
                             # Multiple input variables
                             mvInputVector = []
-                            for i in range(0, len(readDataLambda) - outputs):  # all except the last value in the list
+                            for i in range(0, len(readDataLambda) - outputSize):  # all except the last value in the list
                                 # Create a new input vector for the function
                                 mvInputVector.append(float(readDataLambda[i]))
                                 # print(readDataLambda[i])
@@ -185,7 +185,7 @@ def parseData(outputs):
                             mvInputVectors.append(mvInputVector)
 
                             mvOutputVector = []
-                            for i in range(len(readDataLambda) - outputs,
+                            for i in range(len(readDataLambda) - outputSize,
                                            len(readDataLambda)):  # all except the last value in the list
                                 # Create a new input vector for the function
                                 mvOutputVector.append(float(readDataLambda[i]))
@@ -264,7 +264,7 @@ def load_latest_model(backupShower):
         runData(backupShower, False)
     # Sort directories by creation time (modification time of the directory)
     else:
-        parseData(outputs)
+        parseData(outputSize)
         latest_directory = max(model_directories, key=os.path.getmtime)
 
         # Load model from the latest directory
@@ -329,10 +329,10 @@ while True:
                     m_input = m_input.split(",")
                     print(m_input)
                     inputVals = []
-                    for i in range(len(m_input) - outputs):
+                    for i in range(len(m_input) - outputSize):
                         inputVals.append(float(m_input[i]))
                     outputVals = []
-                    for i in range(len(m_input) - outputs, len(m_input)):
+                    for i in range(len(m_input) - outputSize, len(m_input)):
                         outputVals.append(m_input[i])
                     new_input_array = np.array([inputVals])
                     new_output_array = np.array([outputVals])

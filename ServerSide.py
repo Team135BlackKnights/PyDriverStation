@@ -3,13 +3,15 @@ import socket
 import threading
 import json
 import time
-
+import re
 import joblib
 from sklearn.ensemble import GradientBoostingRegressor
 from sklearn.multioutput import MultiOutputRegressor
 
 model = GradientBoostingRegressor(n_estimators=100)
 wrapper = MultiOutputRegressor(model)
+
+model_naming = re.compile(r'^model_v(/d+)\.pkl$')
 def send_to_roborio(data, roborio_ip, roborio_port):
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.connect((roborio_ip, roborio_port))
@@ -25,25 +27,35 @@ def send_to_roborio(data, roborio_ip, roborio_port):
             if 'outputs' in data:
                 data.pop('outputs')
 
+
 def latest_model():
+    versions = []
     directory = "ModelsPI"
 
     # Create the directory if it doesn't exist
     os.makedirs(directory, exist_ok=True)
+    for filename in os.listdir(directory):
+        match = model_naming.match(filename)
+        if match:
+            versions.append(int(match.group(1)))
+    if versions:
+        latest_version = max(versions)
+        return f'model_v{latest_version}.pkl'
+    else:
+        return None
 
-    # Return the list of paths of subdirectories in the directory
-    return [f.path for f in os.scandir(directory) if f.is_dir()]
+
 def load_latest_model():
-    global wrapper
+    global wrappe
     # Get list of subdirectories in the Models directory
-    model_directories = latest_model()
+    newest_model = latest_model()
 
-    if not model_directories:
+    if not newest_model:
         print("No models found. Do not use runValue.")
     # Sort directories by creation time (modification time of the directory)
     else:
-        latest_directory = max(model_directories, key=os.path.getmtime)
-        wrapper = joblib.load(os.path.join(latest_directory, "wrapper.pkl"))
+        wrapper = joblib.load(newest_model)
+
 
 def handle_client(conn, addr):
     global wrapper
@@ -54,18 +66,22 @@ def handle_client(conn, addr):
         if not packet:
             break
         data += packet
-    timestamp = time.strftime("%m%d-%H%M%S")
-    directory = "ModelsPI/" + str(timestamp)
-    os.makedirs(directory, exist_ok=True)
-
+    newest_model = latest_model()
+    if newest_model:
+        latest_version = int(model_naming.match(newest_model).group(1))
+        new_version = latest_version+1
+    else:
+        new_version = 1
+    new_model = f'model_v{new_version}.pkl'
+    new_model_path = os.path.join("ModelsPI", new_model)
     # Write data to a file in the specified directory
-    saved_file_path = os.path.join(directory, 'wrapper.pkl')
-    with open(saved_file_path, 'wb') as temp_file:
+    with open(new_model_path, 'wb') as temp_file:
         temp_file.write(data)
 
     # Load the wrapper.pkl file using pickle
-    with open(saved_file_path, 'rb') as file:
+    with open(new_model_path, 'rb') as file:
         wrapper = joblib.load(file)
+
 
 def runValue(value):
     row = [[value]]
@@ -73,6 +89,7 @@ def runValue(value):
     # summarize the prediction
     # print('Predicted: %s' % yhat[0])
     return yhat[0]
+
 
 def main():
     HOST = '0.0.0.0'  # Listen on all available interfaces
@@ -82,7 +99,7 @@ def main():
     roborio_port = 5802  # Port on which the roboRIO is listening
     timestamp = 0
     load_latest_model()
-    time.sleep(60) #wait for RIO to boot.
+    time.sleep(1)  #wait for RIO to boot.
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         print("BINDING...")
         s.bind((HOST, PORT))
@@ -90,19 +107,24 @@ def main():
         s.settimeout(.001)
         print(f'Server listening on {HOST}:{PORT}')
         while True:
-            timestamp +=1
+            timestamp += 1
             try:
                 conn, addr = s.accept()
                 client_thread = threading.Thread(target=handle_client, args=(conn, addr))
                 client_thread.start()
             except TimeoutError:
                 pass
+            except Exception:
+                s.close()
+                print("CRASHED BECAUSE CONNECTION TERMINATED... REBOOTING")
+                raise ConnectionError
             data_to_robot['timestamp'] = str(timestamp)
             send_to_roborio(data_to_robot, roborio_ip, roborio_port)
             #data_to_robot.clear()
 
-
             # Send the received data to the roboRIO
+
+
 # BEFORE YOU CALL MAIN MAKE SURE: (only use localhost if sim)
 # 1. HOST (laptop) = 10.1.35.5  OR localhost
 # 2. roborio_ip = 10.1.35.2 OR localhost
