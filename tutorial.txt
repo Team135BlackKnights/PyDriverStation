@@ -1,4 +1,4 @@
-# Connect to the OrangePi via SSH
+ ph# Connect to the OrangePi via SSH
 ssh orangepi@photonvision.local
 
 # Update the system package lists

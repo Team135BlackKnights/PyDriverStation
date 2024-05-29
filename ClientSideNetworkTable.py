@@ -64,7 +64,7 @@ def sendModel():
     if host == "localhost":
         HOST = host
     else:
-        HOST = '10.1.35.11'  # Orange Pi 5 Address
+        HOST = '10.1.35.63'  # Orange Pi 5 Address
     PORT = 5801  # The same port as used by the server
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
