@@ -327,6 +327,7 @@ while True:
                     m_input = m_input[1:-1].replace(" ", "")
                     dataSave = m_input
                     m_input = m_input.split(",")
+                    print(m_input)
                     inputVals = []
                     for i in range(len(m_input) - outputs):
                         inputVals.append(float(m_input[i]))

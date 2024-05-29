@@ -84,6 +84,7 @@ def main():
     load_latest_model()
     time.sleep(60) #wait for RIO to boot.
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        print("BINDING...")
         s.bind((HOST, PORT))
         s.listen()
         s.settimeout(.001)
