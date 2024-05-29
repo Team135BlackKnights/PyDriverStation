@@ -17,15 +17,19 @@ def send_to_roborio(data, roborio_ip, roborio_port):
         s.connect((roborio_ip, roborio_port))
         s.sendall((json.dumps(data) + '\n').encode())
         data_from_robot = json.loads(s.recv(1024).decode())
-        if "modelDistance" in data_from_robot:
-            m_distance = float(data_from_robot["modelDistance"])
-            timeOld = time.time()
-            outputs = runValue(m_distance)
-            print("time to get val:" + str(time.time() - timeOld))
-            data["outputs"] = str(outputs)
-        else:
-            if 'outputs' in data:
-                data.pop('outputs')
+        try:
+            if "modelDistance" in data_from_robot:
+                m_distance = float(data_from_robot["modelDistance"])
+                timeOld = time.time()
+                outputs = runValue(m_distance)
+                print("time to get val:" + str(time.time() - timeOld))
+                data["outputs"] = str(outputs)
+            else:
+                if 'outputs' in data:
+                    data.pop('outputs')
+        except Exception:
+            if "modelDistance" in data_from_robot:
+                data["outputs"] = str([0])
 
 
 def latest_model():
@@ -46,7 +50,7 @@ def latest_model():
 
 
 def load_latest_model():
-    global wrappe
+    global wrapper
     # Get list of subdirectories in the Models directory
     newest_model = latest_model()
 
@@ -67,6 +71,7 @@ def handle_client(conn, addr):
             break
         data += packet
     newest_model = latest_model()
+    print(newest_model)
     if newest_model:
         latest_version = int(model_naming.match(newest_model).group(1))
         new_version = latest_version+1
@@ -95,7 +100,7 @@ def main():
     HOST = '0.0.0.0'  # Listen on all available interfaces
     PORT = 5801  # Port to listen on
     data_to_robot = {'timestamp': '0'}
-    roborio_ip = '10.1.35.2'  # Replace with the actual IP address of the roboRIO
+    roborio_ip = 'localhost'  # Replace with the actual IP address of the roboRIO
     roborio_port = 5802  # Port on which the roboRIO is listening
     timestamp = 0
     load_latest_model()
