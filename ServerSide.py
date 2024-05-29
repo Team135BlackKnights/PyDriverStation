@@ -11,7 +11,9 @@ from sklearn.multioutput import MultiOutputRegressor
 model = GradientBoostingRegressor(n_estimators=100)
 wrapper = MultiOutputRegressor(model)
 
-model_naming = re.compile(r'^model_v(/d+)\.pkl$')
+model_naming = re.compile(r"model_v(\d+)\.pkl")
+directory = "ModelsPI"
+
 def send_to_roborio(data, roborio_ip, roborio_port):
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.connect((roborio_ip, roborio_port))
@@ -34,7 +36,6 @@ def send_to_roborio(data, roborio_ip, roborio_port):
 
 def latest_model():
     versions = []
-    directory = "ModelsPI"
 
     # Create the directory if it doesn't exist
     os.makedirs(directory, exist_ok=True)
@@ -58,7 +59,9 @@ def load_latest_model():
         print("No models found. Do not use runValue.")
     # Sort directories by creation time (modification time of the directory)
     else:
-        wrapper = joblib.load(newest_model)
+        newest_model_path = os.path.join(directory,newest_model)
+        print("Using " + newest_model)
+        wrapper = joblib.load(newest_model_path)
 
 
 def handle_client(conn, addr):
@@ -100,7 +103,7 @@ def main():
     HOST = '0.0.0.0'  # Listen on all available interfaces
     PORT = 5801  # Port to listen on
     data_to_robot = {'timestamp': '0'}
-    roborio_ip = 'localhost'  # Replace with the actual IP address of the roboRIO
+    roborio_ip = '10.1.35.2'  # Replace with the actual IP address of the roboRIO
     roborio_port = 5802  # Port on which the roboRIO is listening
     timestamp = 0
     load_latest_model()
