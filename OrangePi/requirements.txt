@@ -1,0 +1,6 @@
+joblib
+scikit-learn
+frccontrol
+matplotlib
+numpy
+scipy
