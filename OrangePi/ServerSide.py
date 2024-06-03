@@ -17,7 +17,7 @@ model = GradientBoostingRegressor(n_estimators=100)
 wrapper = MultiOutputRegressor(model)
 
 model_naming = re.compile(r"model_v(\d+)\.pkl")
-directory = "ModelsPI"
+directory = "../OrangePi/ModelsPI/"
 MOTOR_KRAKEN_X60_FOC = DcBrushedMotor(12.0, 9.36, 476.1, 2, 6000.0)  # create Kraken FOC
 dt = 0.02
 length1 = 46.25 * .0254  # in meters, so .0254
@@ -179,7 +179,8 @@ def handle_client(conn, addr):
     else:
         new_version = 1
     new_model = f'model_v{new_version}.pkl'
-    new_model_path = os.path.join("../ModelsPI", new_model)
+    new_model_path = os.path.join("../OrangePi/ModelsPI/", new_model)
+    print(new_model_path)
     # Write data to a file in the specified directory
     with open(new_model_path, 'wb') as temp_file:
         temp_file.write(data)
@@ -201,7 +202,7 @@ def main():
     HOST = '0.0.0.0'  # Listen on all available interfaces
     PORT = 5801  # Port to listen on
     data_to_robot = {'timestamp': '0'}
-    roborio_ip = '10.1.35.2'  # Replace with the actual IP address of the roboRIO
+    roborio_ip = 'localhost'  # Replace with the actual IP address of the roboRIO
     roborio_port = 5802  # Port on which the roboRIO is listening
     timestamp = 0
     load_latest_model()
