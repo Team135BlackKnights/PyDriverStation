@@ -131,7 +131,8 @@ class DoubleJointedArm:
         anglevelocity2 -- angular velocity of joint 2 (in radians/second)
         """
         self.x[:4] = np.array([[angle1], [angle2], [anglevelocity1], [anglevelocity2]])
-
+    def updatePosition(self, angle1,angle2):
+        self.x[:2] = np.array([[angle1], [angle2]])
         # Update the observer's estimated state x_hat
         #self.observer.x_hat[:4] = self.x[:4]
 

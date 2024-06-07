@@ -112,7 +112,12 @@ def send_to_roborio(data, roborio_ip, roborio_port):
             if "DoubleJointedEncoders" in data_from_robot:
                 encoders_string = data_from_robot["DoubleJointedEncoders"]
                 encoders = [float(value) for value in encoders_string.split(",")]
-                arm.updateEncoders(encoders[0], encoders[1], encoders[2], encoders[3])
+                arm.updatePosition(encoders[0], encoders[1])
+                data["gotEncoder"] = str("RECEIVED ENCODERS")
+                #arm.updateEncoders(encoders[0], encoders[1], encoders[2], encoders[3])
+            else:
+                if 'gotEncoder' in data:
+                    data.pop('gotEncoder')
             if "modelDistance" in data_from_robot:
                 m_distance = float(data_from_robot["modelDistance"])
                 timeOld = time.time()
