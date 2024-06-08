@@ -47,46 +47,39 @@ motor_type = MOTOR_KRAKEN_X60_FOC
 gravity = 9.806
 
 #Real controls and outputs.
-voltages = np.zeros(2)
-startingAngleShoulder = 0  #placeholders.
-startingAngleElbow = 0  #placeholders.
-startingVelocityShoulder = 0  #placeholders.
-startingVelocityElbow = 0  #placeholders.
+voltages = np.zeros(4)
 angleShoulder = 0
 angleElbow = 0
-velocityShoulder = 0
-velocityElbow = 0
 
 
 def to_state(x, y, invert, arm):
-
     theta1, theta2 = arm.constants.inv_kinematics(x, y, invert)
     return np.array([[theta1], [theta2], [0], [0]])
 
 
-def initialize_arm():
+def initialize_arm(target_state):
     """
     Initialize the arm.
     """
     return DoubleJointedArm(dt, length1, length2, mass1, mass2, pivot_to_CG1, pivot_to_CG2, MOI1, MOI2, gearing1,
-                            gearing2, motor_count1, motor_count2, motor_type, gravity)
+                            gearing2, motor_count1, motor_count2, motor_type, gravity, target_state)
 
 
 def initialize_arm_with_encoders():
     """
     Initialize the arm's state based on encoder readings.
     """
-    arm = initialize_arm()
+    target_state = np.array([[angleShoulder], [angleElbow], [0],
+                             [0], [0], [0]])
+    arm = initialize_arm(target_state)
 
     # Set initial state based on encoder values
-    arm.x = np.array([[startingAngleShoulder], [startingAngleElbow], [startingVelocityShoulder],
-                      [startingVelocityElbow], [0], [0]])  # Initial state [angle1, angle2, velocity1, velocity2]
-    arm.observer.x_hat = arm.x
+    arm.x = target_state  # Initial state [angle1, angle2, velocity1, velocity2]
+    arm.observer.x_hat = arm.x  #override the Kalman filter to have the target_state (since it's our start pos)
 
     return arm
 
 
-arm = initialize_arm_with_encoders()
 # Initialize plot
 def arm_loop(arm):
     global voltages
@@ -102,8 +95,11 @@ def arm_loop(arm):
         #plt.pause(arm.dt)
 
 
+arm = None
+
+
 def send_to_roborio(data, roborio_ip, roborio_port):
-    global angleShoulder, angleElbow, velocityShoulder, velocityElbow
+    global angleShoulder, angleElbow, arm
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.connect((roborio_ip, roborio_port))
         s.sendall((json.dumps(data) + '\n').encode())
@@ -112,9 +108,16 @@ def send_to_roborio(data, roborio_ip, roborio_port):
             if "DoubleJointedEncoders" in data_from_robot:
                 encoders_string = data_from_robot["DoubleJointedEncoders"]
                 encoders = [float(value) for value in encoders_string.split(",")]
+                angleShoulder, angleElbow = encoders[0], encoders[1]
+                #If we haven't yet done the arm, do it here.
+                if arm is None:
+                    arm = initialize_arm_with_encoders()
+                    arm_thread = threading.Thread(target=arm_loop, args=(arm,))
+                    arm_thread.daemon = True  # Allow the thread to be terminated when the main thread exits
+                    arm_thread.start()
                 arm.updatePosition(encoders[0], encoders[1])
                 data["gotEncoder"] = str("RECEIVED ENCODERS")
-                #arm.updateEncoders(encoders[0], encoders[1], encoders[2], encoders[3])
+                #arm.updateEncoders(encoders[0], encoders[1], encoders[2], encoders[3]) only done with REV
             else:
                 if 'gotEncoder' in data:
                     data.pop('gotEncoder')
@@ -177,7 +180,7 @@ def handle_client(conn, addr):
             break
         data += packet
     newest_model = latest_model()
-    print(newest_model)
+    print("Current Latest Model is: " + newest_model)
     if newest_model:
         latest_version = int(model_naming.match(newest_model).group(1))
         new_version = latest_version + 1
@@ -211,14 +214,6 @@ def main():
     roborio_port = 5802  # Port on which the roboRIO is listening
     timestamp = 0
     load_latest_model()
-    #go_to_state(arm, state2)
-    #go_to_state(arm, state3, .1)
-    arm_thread = threading.Thread(target=arm_loop, args=(arm,))
-    arm_thread.daemon = True  # Allow the thread to be terminated when the main thread exits
-    arm_thread.start()
-    #arm_thread = threading.Thread(target=run_arm_simulation, args=(arm, t_rec, traj))
-    #arm_thread.start()
-    print("BINDING...")
     time.sleep(1)  #wait for RIO to boot.
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         print("BINDING...")

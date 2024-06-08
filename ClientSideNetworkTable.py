@@ -16,8 +16,13 @@ import random
 # To see messages from network tables, you must set up logging
 import logging
 import joblib
+import warnings
+
+#Set up what we consider an error.
+logging.basicConfig(level=logging.CRITICAL)
 
 # Variable Declarations
+
 hasParseDataRan = False
 mvInputVector = []
 mvInputVectors = []
@@ -27,7 +32,6 @@ variableNames = []
 inputNames = []
 outputNames = []
 dataLambda = []
-
 
 '''
 If you care more about overfitting the model less, use
@@ -39,8 +43,11 @@ wrapper = MultiOutputRegressor(model)
 testInput = []
 testOutput = []
 
-# Number of outputs
+# Number of outputs, automatically grabs all others as inputs.
 outputSize = 1
+#How much data should be reserved for confirming the model's accuracy?
+#When you've completed tuning the model, this should be 0, as no testing.
+testDataPercent = .3
 
 
 def runData(shouldShow, reRunning):
@@ -55,7 +62,6 @@ def runData(shouldShow, reRunning):
     global mvInputVectors
     global mvOutputVectors
     if not reRunning:
-
         # Output size is number of outputs
         parseData(outputSize)
 
@@ -97,6 +103,7 @@ def runValue(value):
 
     Returns:
         float: the model output for that value"""
+    warnings.warn("This function is deprecated. Only the Orange Pi runs values. ", DeprecationWarning)
     row = [[value]]
     yhat = wrapper.predict(row)
 
@@ -109,9 +116,8 @@ def runValue(value):
 def createModel(shouldCheck):
     """Create the neural network model based on the data in mvInputVectors and mvOutputVectors
 
-    Parameters:
-        shouldCheck (boolean): Whether you want a detailed analysis of the function's fit printed out"""
-
+    Parameters: shouldCheck (boolean): Whether you want a detailed analysis of the function's fit printed out. This
+    will drastically increase runtime."""
 
     global mvInputVectors, mvOutputVectors, wrapper
 
@@ -119,7 +125,6 @@ def createModel(shouldCheck):
     wrapper.fit(mvInputVectors, mvOutputVectors)
 
     if shouldCheck:
-
         # Compute how well the model fits
         predictions = wrapper.predict(testInput)
         overall_mse = mean_squared_error(testOutput, predictions)
@@ -130,7 +135,6 @@ def createModel(shouldCheck):
         print(f"Overall Mean Squared Error: {overall_mse}")
         print(f"Overall Mean Absolute Error: {overall_mae}")
         print(f"Overall R^2 Score: {overall_r2}")
-
 
 
 def graphImportance():
@@ -184,11 +188,8 @@ def graphImportance():
 
 def parseData(outputSize):
     """Takes the inputs from the data folder and converts them into a program-usable array.
-
-    :param outputSize: The length of the output vectors.
-    """
-    "Reads all txt files in sample_data, and puts them all in a nx2 matrix"
-    "(n being amount of rows, 2 being the amount of columns), then reads every file in the sample_data folder"""
+    Reads all txt files in sample_data, and puts them all in a nx2 matrix.
+    :param outputSize: The length of the output vectors."""
     global hasParseDataRan, mvInputVectors, mvOutputVectors, variableNames, testInput, testOutput
     if not hasParseDataRan:
 
@@ -196,7 +197,7 @@ def parseData(outputSize):
         for file in os.listdir("data"):
 
             # Checks if the file is a .csv (rio data log file type)
-            if file.endswith(".txt"):
+            if file.endswith(".txt"):  #currently txt as no raw CSVs have been used.
 
                 # opens the reader, runs while ignoring heading
                 reader = open("data/" + file, "r", encoding="utf-8")
@@ -206,7 +207,7 @@ def parseData(outputSize):
                 for line in reader:
                     try:
 
-                        # so it doesn't read headings of txt files, or the column names
+                        # so it doesn't read headings of txt files, or the column names, store these in a separate list.
                         if lineCount == 0:
                             variableNames = line.split(",")
                             variableNames[0] = variableNames[0][1:]
@@ -223,11 +224,8 @@ def parseData(outputSize):
                             # Multiple input variables
                             mvInputVector = []
                             for i in range(0, len(readDataLambda) - outputSize):
-
                                 # Create a new input vector for the function
                                 mvInputVector.append(float(readDataLambda[i]))
-
-                                # print(readDataLambda[i])
 
                             # Log the input vector
                             mvInputVectors.append(mvInputVector)
@@ -247,9 +245,9 @@ def parseData(outputSize):
                     lineCount += 1
                 reader.close()
 
-        sample = int(len(mvInputVectors) * .4)
+        sample = int(len(mvInputVectors) * testDataPercent)
 
-        # This video splits some data into test data to verify if the model is good
+        # This splits some data into test data to verify if the model is good
         # Generate a list of indices from 0 to len(mvInputVectors) - 1
         indices = list(range(len(mvInputVectors)))
 
@@ -268,24 +266,9 @@ def parseData(outputSize):
         mvOutputVectors = np.array(mvOutputVectors)
         testInput = np.array(testInput)
         testOutput = np.array(testOutput)
-        # print(mvInputVectors)
-        # print(mvOutputVectors)
-
-        """print("Data Array X Values:")
-        print(dataArray[0])
-        print(" ")
-        print("Data Array Y Values:")
-        print(dataArray[1])
-        print(" ")"""
     else:
-        # We already parsed the data, no need to do it again.
-
         print("Data has already been parsed, moving on")
     hasParseDataRan = True
-
-
-logging.basicConfig(level=logging.ERROR)
-
 
 
 def saveModel():
@@ -302,7 +285,6 @@ def saveModel():
     joblib.dump(wrapper, directory + "/" + "wrapper")
 
 
-
 def latest_model():
     """Returns the path of the most recently timestamped directory. Must use max(return, key = os.path.getmtime)!!!"""
     directory = "Models"
@@ -315,11 +297,10 @@ def latest_model():
     return [f.path for f in os.scandir(directory) if f.is_dir()]
 
 
-
 def load_latest_model(backupShower):
     """
     Loads the model from the aforementioned files
-    :param backupShower: the backup data in case no models are found
+    :param backupShower: Should I
     :return:
     """
     global wrapper
@@ -341,9 +322,8 @@ def load_latest_model(backupShower):
 
 load_latest_model(True)
 
+host = ""  #unknown on boot if SIM or REAL
 
-#graphImportance()
-host = ""
 
 def connect():
     """Keeps trying to make a connection with either the robot or the simulation logs"""
@@ -372,7 +352,7 @@ def connect():
 
 connect()
 # connected
-sd = NetworkTables.getTable("SmartDashboard")
+sd = NetworkTables.getTable("SmartDashboard")  #uses SmartDashboard for seamless connection at the cost of speed.
 
 data_to_robot = {
     "test": "0"  # comma then next value
@@ -402,7 +382,6 @@ while True:
                     m_input = m_input[1:-1].replace(" ", "")
                     dataSave = m_input
                     m_input = m_input.split(",")
-                    print(m_input)
                     inputVals = []
                     for i in range(len(m_input) - outputSize):
                         inputVals.append(float(m_input[i]))
@@ -413,20 +392,15 @@ while True:
                     new_output_array = np.array([outputVals])
                     mvInputVectors = np.concatenate((mvInputVectors, new_input_array), axis=0)
                     mvOutputVectors = np.concatenate((mvOutputVectors, new_output_array), axis=0)
-
-                    runData(False, True)
+                    runData(False, True)  #never show new calcs because single-input update.
                     print("update time" + str(time.time() - lastSentUpdate))
                     data_to_robot["modelUpdated"] = str("True")
+                    #also save to our file.
                     with open("data/shooterData.txt", 'a') as file:
                         file.write(f'\n{dataSave}')
+                    #send the updated model
                     send_thread = threading.Thread(target=sendModel)
                     send_thread.start()
-            if "modelDistance" in data_from_robot:
-                m_distance = float(data_from_robot["modelDistance"])
-                timeOld = time.time()
-                outputs = runValue(m_distance)
-                # print("time to get val:" + str(time.time() - timeOld))
-                data_to_robot["outputs"] = str(outputs)
         i += 1
         data_to_robot["time"] = i
         # Convert dictionary to JSON string

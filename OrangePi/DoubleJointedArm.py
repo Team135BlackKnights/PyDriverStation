@@ -14,7 +14,6 @@ import time
 import frccontrol as fct
 
 if "--noninteractive" not in sys.argv:
-    print("NON")
     mpl.use("TkAgg")
 
 
@@ -22,19 +21,32 @@ class DoubleJointedArm:
     """
     An frccontrol system representing a double-jointed arm.
 
-    States: [joint angle 1, joint angle 2,
-             joint angular velocity 1, joint angular velocity 2,
+    States: [joint angle 1(rad), joint angle 2 (rad),
+             joint angular velocity 1 (rad/s), joint angular velocity 2(rad/s),
              input error 1, input error 2]
-    Inputs: [voltage 1, voltage 2]
+    Outputs: [voltage 1, voltage 2]
     """
 
     def __init__(self, dt, length1, length2, mass1, mass2, pivot_to_CG1, pivot_to_CG2, MOI1, MOI2, gearing1, gearing2,
-                 motor_count1, motor_count2, motor_type, gravity):
+                 motor_count1, motor_count2, motor_type, gravity, start_state):
         """
-        Double-jointed arm subsystem.
-
-        Keyword arguments:
-        dt -- simulation step time
+        Double-jointed arm subsystem
+        :param dt periodic cycle time
+        :param length1 is length of ARM (meters)
+        :param length2 is length of ELBOW (meters)
+        :param mass1 is mass of ARM (kg)
+        :param mass2 is mass of ELBOW (kg)
+        :param pivot_to_CG1 is pivot position of ARM (meters)
+        :param pivot_to_CG2 is pivot position of ELBOW (meters)
+        :param MOI1 is moisture component of ARM (kg meters^2)
+        :param MOI2 is moisture component of ELBOW (kg meters^2)
+        :param gearing1 is gearing component of ARM (greater than 1 is a reduction)
+        :param gearing2 is gearing component of ELBOW (greater than 1 is a reduction)
+        :param motor_count1 is motors on the ARM section
+        :param motor_count2 is motors on the ELBOW section
+        :param motor_type is motor (kraken, neo, etc.), must be same between ARM and ELBOW
+        :param gravity is gravity component of ARM (meters/second)
+        :param start_state is starting state of ARM (posArm (rad),posElbow (rad),velocityArm (rad/s),velocityElbow (rad/s),StateErrorArm(0),StateErrorElbow (0))
         """
         self.dt = dt
 
@@ -59,30 +71,26 @@ class DoubleJointedArm:
         self.x = np.zeros((6, 1))
         self.u = np.zeros((2, 1))
         self.y = np.zeros((2, 1))
-        self.target_state = np.zeros((6, 1))
+        self.target_state = start_state  #may need to become a given start state. #np.zeroes((6,1))
         self.u_min = np.array([[-12.0]])
         self.u_max = np.array([[12.0]])
 
-    # pragma pylint: disable=unused-argument
     def set_target_state(self, target_state):
         """
         Set a new target state for the arm.
 
-        Keyword arguments:
-        target_state -- the new target state as a 6x1 numpy array
+        Keyword arguments: target_state -- the new target state (setpoint) as a 6x1 numpy array, with it being in the
+        form of posArm (rad), posElbow (rad), velocityArm (rad/s), velocityElbow (rad/s), errorArm (0), errorElbow (0)
         """
         self.target_state = target_state
 
     def update(self):
         """
-        Advance the model by one timestep.
-
-        Keyword arguments:
-        r -- the current reference
-        next_r -- the next reference
+        Advance the model by one timestep towards the setpoint.
         """
         self.x = fct.rkdp(self.f, self.x, self.u, self.dt)
         self.y = self.h(self.x, self.u)
+        #To add noise, uncomment below.
         # self.y += np.array(
         #     [np.random.multivariate_normal(mean=[0, 0], cov=np.diag([1e-4, 1e-4]))]
         # ).T
@@ -131,7 +139,8 @@ class DoubleJointedArm:
         anglevelocity2 -- angular velocity of joint 2 (in radians/second)
         """
         self.x[:4] = np.array([[angle1], [angle2], [anglevelocity1], [anglevelocity2]])
-    def updatePosition(self, angle1,angle2):
+
+    def updatePosition(self, angle1, angle2):
         self.x[:2] = np.array([[angle1], [angle2]])
         # Update the observer's estimated state x_hat
         #self.observer.x_hat[:4] = self.x[:4]
@@ -200,6 +209,7 @@ class DoubleJointedArm:
 
     def getVolt(self):
         return self.u
+
     def getPositions(self):
         return self.x[0:2]
 
