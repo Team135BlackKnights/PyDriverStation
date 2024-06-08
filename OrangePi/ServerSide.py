@@ -59,14 +59,14 @@ velocityElbow = 0
 
 
 def to_state(x, y, invert, arm):
+
     theta1, theta2 = arm.constants.inv_kinematics(x, y, invert)
     return np.array([[theta1], [theta2], [0], [0]])
 
 
 def initialize_arm():
     """
-    Initialize the arm with the required parameters.
-    Replace with actual initialization code.
+    Initialize the arm.
     """
     return DoubleJointedArm(dt, length1, length2, mass1, mass2, pivot_to_CG1, pivot_to_CG2, MOI1, MOI2, gearing1,
                             gearing2, motor_count1, motor_count2, motor_type, gravity)

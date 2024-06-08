@@ -29,17 +29,16 @@ outputNames = []
 dataLambda = []
 
 
-
-
-
 '''
 If you care more about overfitting the model less, use
 model = RandomForestRegressor(n_jobs=-1,n_estimators=100)'''
 model = GradientBoostingRegressor(n_estimators=100)
 wrapper = MultiOutputRegressor(model)
+
 # Stores values for testing
 testInput = []
 testOutput = []
+
 # Number of outputs
 outputSize = 1
 
@@ -52,10 +51,13 @@ def runData(shouldShow, reRunning):
         shouldShow (boolean): Whether an analysis of the model should be printed
         reRunning (boolean):  Whether the data has been run previously"""
 
+    # Variable Declarations
     global mvInputVectors
     global mvOutputVectors
     if not reRunning:
-        parseData(outputSize)  # number of outputs
+
+        # Output size is number of outputs
+        parseData(outputSize)
 
     createModel(shouldShow)
     saveModel()
@@ -71,10 +73,12 @@ def sendModel():
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.connect((HOST, PORT))
-        #Creates the model, names it the timestamp
+
+        # Pulls the model named the timestamp
         model_directories = latest_model()
         latest_directory = max(model_directories, key=os.path.getmtime)
 
+        # Sends the model
         with open(os.path.join(latest_directory, "wrapper"), 'rb') as f:
             while True:
                 bytes_read = f.read(1024)
@@ -95,8 +99,10 @@ def runValue(value):
         float: the model output for that value"""
     row = [[value]]
     yhat = wrapper.predict(row)
-    # summarize the prediction
+
+    # Optional output statement
     # print('Predicted: %s' % yhat[0])
+
     return yhat
 
 
@@ -108,15 +114,19 @@ def createModel(shouldCheck):
 
 
     global mvInputVectors, mvOutputVectors, wrapper
+
     # Fit the model on the polynomial features of the dataset
     wrapper.fit(mvInputVectors, mvOutputVectors)
 
     if shouldCheck:
+
+        # Compute how well the model fits
         predictions = wrapper.predict(testInput)
         overall_mse = mean_squared_error(testOutput, predictions)
         overall_mae = mean_absolute_error(testOutput, predictions)
         overall_r2 = r2_score(testOutput, predictions)
 
+        # Print how well the model fits
         print(f"Overall Mean Squared Error: {overall_mse}")
         print(f"Overall Mean Absolute Error: {overall_mae}")
         print(f"Overall R^2 Score: {overall_r2}")
@@ -128,15 +138,19 @@ def graphImportance():
     Feature importances show how much a particular variable (property of the input that changes) effects the result
      of the data."""
     feature_importances = []
+
+    # Get the feature importances
     for regressor in wrapper.estimators_:
         feature_importances.append(regressor.feature_importances_)
     feature_importances = pd.DataFrame(feature_importances, columns=inputNames)
     num_outputs = feature_importances.shape[0]
     fig, axes = plt.subplots(num_outputs, 1, figsize=(12, 6 * num_outputs))
 
+    # Ensure axes is iterable when there's only one output
     if num_outputs == 1:
-        axes = [axes]  # Ensure axes is iterable when there's only one output
+        axes = [axes]
 
+    # Plot the feature importances on a graph
     for i, ax in enumerate(axes):
         sorted_idx = np.argsort(feature_importances.iloc[i])
         pos = np.arange(sorted_idx.shape[0]) + 0.5
@@ -145,12 +159,15 @@ def graphImportance():
         ax.set_yticklabels(np.array(inputNames)[sorted_idx])
         ax.set_title(f"Feature Importance for Output {i + 1} ({outputNames[i]})")
 
+    # Make the graphs
     plt.tight_layout()
     plt.show()
 
     result = permutation_importance(
         wrapper, testInput, testOutput, n_repeats=10, random_state=42, n_jobs=-1
     )
+
+    # Create the actual importances
     sorted_idx = result.importances_mean.argsort()
     plt.subplot(1, 2, 2)
     plt.boxplot(
@@ -158,6 +175,8 @@ def graphImportance():
         vert=False,
         tick_labels=np.array(inputNames)[sorted_idx],
     )
+
+    # Title and show the graph of importances
     plt.title("Permutation Importance (test set)")
     fig.tight_layout()
     plt.show()
@@ -168,19 +187,25 @@ def parseData(outputSize):
 
     :param outputSize: The length of the output vectors.
     """
+    "Reads all txt files in sample_data, and puts them all in a nx2 matrix"
+    "(n being amount of rows, 2 being the amount of columns), then reads every file in the sample_data folder"""
     global hasParseDataRan, mvInputVectors, mvOutputVectors, variableNames, testInput, testOutput
     if not hasParseDataRan:
-        # This reads all txt files in sample_data, and puts them all in a nx2 matrix (n being amount of rows,
-        # 2 being the amount of columns) reads every file in the sample_data folder
+
+        #Checks every file in the data folder
         for file in os.listdir("data"):
-            # checks if the file is a .csv (rio data log file type)
+
+            # Checks if the file is a .csv (rio data log file type)
             if file.endswith(".txt"):
+
                 # opens the reader, runs while ignoring heading
                 reader = open("data/" + file, "r", encoding="utf-8")
                 lineCount = 0
 
+                # Runs through each line in reader
                 for line in reader:
                     try:
+
                         # so it doesn't read headings of txt files, or the column names
                         if lineCount == 0:
                             variableNames = line.split(",")
@@ -191,25 +216,30 @@ def parseData(outputSize):
                             for i in range(len(variableNames) - outputSize, len(variableNames)):
                                 outputNames.append(variableNames[i])
                         else:
+
                             # x vals are data array 0 y vals are data array 1
                             readDataLambda = line.split(",")
+
                             # Multiple input variables
                             mvInputVector = []
-                            for i in range(0, len(readDataLambda) - outputSize):  # all except the last value in the list
+                            for i in range(0, len(readDataLambda) - outputSize):
+
                                 # Create a new input vector for the function
                                 mvInputVector.append(float(readDataLambda[i]))
+
                                 # print(readDataLambda[i])
 
                             # Log the input vector
                             mvInputVectors.append(mvInputVector)
-
                             mvOutputVector = []
                             for i in range(len(readDataLambda) - outputSize,
                                            len(readDataLambda)):  # all except the last value in the list
+
                                 # Create a new input vector for the function
                                 mvOutputVector.append(float(readDataLambda[i]))
                             mvOutputVectors.append(mvOutputVector)
                     except ValueError:
+
                         # if an error occurs, print the line that it failed to read
                         print("ValueError reading line", lineCount, "\nMODEL WILL CRASH SHORTLY.")
                     except TypeError:
@@ -218,10 +248,14 @@ def parseData(outputSize):
                 reader.close()
 
         sample = int(len(mvInputVectors) * .4)
+
+        # This video splits some data into test data to verify if the model is good
         # Generate a list of indices from 0 to len(mvInputVectors) - 1
         indices = list(range(len(mvInputVectors)))
+
         # Randomly sample indices
         sampled_indices = random.sample(indices, sample)
+
         # Create testInput and testOutput lists based on the sampled indices
         offset = 0
         for j in sampled_indices:
@@ -244,6 +278,8 @@ def parseData(outputSize):
         print(dataArray[1])
         print(" ")"""
     else:
+        # We already parsed the data, no need to do it again.
+
         print("Data has already been parsed, moving on")
     hasParseDataRan = True
 
@@ -254,10 +290,15 @@ logging.basicConfig(level=logging.ERROR)
 
 def saveModel():
     """Saves the model as a .pkl file on a local drive"""
+
+    # Take the timestamp, create a new folder with it
     timestamp = time.strftime("%m%d-%H%M%S")
     directory = "Models/" + str(timestamp)
     os.makedirs(directory)
+
     # joblib.dump(poly, directory + "/" + "PolynomialFeatures")
+
+    # Put the file into the timestamp
     joblib.dump(wrapper, directory + "/" + "wrapper")
 
 
@@ -307,7 +348,14 @@ host = ""
 def connect():
     """Keeps trying to make a connection with either the robot or the simulation logs"""
     global host
+
+    # If not connected, keep trying to cycle
     while not NetworkTables.isConnected():
+
+        """
+        Try to get the server for both IPs (radio ip for the real world or local host for sim). 
+        If the program can't get the networkTables client at that ip
+        attempt to connect at the next ip"""
         NetworkTables.initialize(server="10.1.35.2")
         print("Connecting to Robot")
         time.sleep(2)
