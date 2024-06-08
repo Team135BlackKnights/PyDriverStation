@@ -26,20 +26,12 @@ mvOutputVectors = []
 variableNames = []
 inputNames = []
 outputNames = []
-# Holds data from file
-graphSubplotSize = [2, 2, 1]
 dataLambda = []
-# Holds output of the function
-functionOut = []
-# For making the graph look smooth
-functXList = []
-# Holds residuals (actual value minus predicted value)
-residList = []
-residSquaredList = []
-# Holds all the differences between individual values and the mean
-stdDevList = []
-# Digits to truncate to
-keptDecimalPlaces = 5
+
+
+
+
+
 '''
 If you care more about overfitting the model less, use
 model = RandomForestRegressor(n_jobs=-1,n_estimators=100)'''
