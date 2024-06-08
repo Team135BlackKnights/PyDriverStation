@@ -40,17 +40,26 @@ residSquaredList = []
 stdDevList = []
 # Digits to truncate to
 keptDecimalPlaces = 5
-# If you care more about less overfitting, use
-# model = RandomForestRegressor(n_jobs=-1,n_estimators=100)
+'''
+If you care more about overfitting the model less, use
+model = RandomForestRegressor(n_jobs=-1,n_estimators=100)'''
 model = GradientBoostingRegressor(n_estimators=100)
 wrapper = MultiOutputRegressor(model)
 # Stores values for testing
 testInput = []
 testOutput = []
+# Number of outputs
 outputSize = 1
 
-#full data loop, parse, create, and save.
+
 def runData(shouldShow, reRunning):
+    """This function parses all the data sent to the data handler,
+    creates an AI model out of the data, and saves the model as a folder named as the created timestamp
+
+    Parameters:
+        shouldShow (boolean): Whether an analysis of the model should be printed
+        reRunning (boolean):  Whether the data has been run previously"""
+
     global mvInputVectors
     global mvOutputVectors
     if not reRunning:
@@ -61,6 +70,7 @@ def runData(shouldShow, reRunning):
 
 
 def sendModel():
+    """Sends the file to the RoboRIO"""
     if host == "localhost":
         HOST = host
     else:
@@ -69,6 +79,7 @@ def sendModel():
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.connect((HOST, PORT))
+        #Creates the model, names it the timestamp
         model_directories = latest_model()
         latest_directory = max(model_directories, key=os.path.getmtime)
 
@@ -82,8 +93,14 @@ def sendModel():
     return
 
 
-# Compute what the model outputs at a specific input value (think of this as returning f(x))
 def runValue(value):
+    """Computes what the model outputs as a specific input value (returns essentially an f(x) if value is x)
+
+    Parameters:
+        value (float): The value that you want a model output for
+
+    Returns:
+        float: the model output for that value"""
     row = [[value]]
     yhat = wrapper.predict(row)
     # summarize the prediction
@@ -91,12 +108,17 @@ def runValue(value):
     return yhat
 
 
-# Create the neural network model on data.
 def createModel(shouldCheck):
+    """Create the neural network model based on the data in mvInputVectors and mvOutputVectors
+
+    Parameters:
+        shouldCheck (boolean): Whether you want a detailed analysis of the function's fit printed out"""
+
+
     global mvInputVectors, mvOutputVectors, wrapper
     # Fit the model on the polynomial features of the dataset
     wrapper.fit(mvInputVectors, mvOutputVectors)
-    #model.fit(mvInputVectors, mvOutputVectors)
+
     if shouldCheck:
         predictions = wrapper.predict(testInput)
         overall_mse = mean_squared_error(testOutput, predictions)
@@ -108,9 +130,11 @@ def createModel(shouldCheck):
         print(f"Overall R^2 Score: {overall_r2}")
 
 
-# Graph the feature importances. Feature importances show how much a particular variable (property of the
-# input that changes) effects the result of the data.
+
 def graphImportance():
+    """Graph the feature importances.
+    Feature importances show how much a particular variable (property of the input that changes) effects the result
+     of the data."""
     feature_importances = []
     for regressor in wrapper.estimators_:
         feature_importances.append(regressor.feature_importances_)
@@ -147,8 +171,11 @@ def graphImportance():
     plt.show()
 
 
-# Takes the inputs from the data folder and converts them into a program-usable array.
 def parseData(outputSize):
+    """Takes the inputs from the data folder and converts them into a program-usable array.
+
+    :param outputSize: The length of the output vectors.
+    """
     global hasParseDataRan, mvInputVectors, mvOutputVectors, variableNames, testInput, testOutput
     if not hasParseDataRan:
         # This reads all txt files in sample_data, and puts them all in a nx2 matrix (n being amount of rows,
@@ -232,8 +259,9 @@ def parseData(outputSize):
 logging.basicConfig(level=logging.ERROR)
 
 
-# Saves the model as a file on a drive (.pkl)
+
 def saveModel():
+    """Saves the model as a .pkl file on a local drive"""
     timestamp = time.strftime("%m%d-%H%M%S")
     directory = "Models/" + str(timestamp)
     os.makedirs(directory)
@@ -241,8 +269,9 @@ def saveModel():
     joblib.dump(wrapper, directory + "/" + "wrapper")
 
 
-#Must use max(return, key = os.path.getmtime)!!!
+
 def latest_model():
+    """Returns the path of the most recently timestamped directory. Must use max(return, key = os.path.getmtime)!!!"""
     directory = "Models"
 
     # Create the directory if it doesn't exist
@@ -253,8 +282,13 @@ def latest_model():
     return [f.path for f in os.scandir(directory) if f.is_dir()]
 
 
-# Loads the model from the aforementioned files
+
 def load_latest_model(backupShower):
+    """
+    Loads the model from the aforementioned files
+    :param backupShower: the backup data in case no models are found
+    :return:
+    """
     global wrapper
     # Get list of subdirectories in the Models directory
     model_directories = latest_model()
@@ -277,8 +311,9 @@ load_latest_model(True)
 
 #graphImportance()
 host = ""
-#Keeps trying to make a connection with either the robot or the simulation logs
+
 def connect():
+    """Keeps trying to make a connection with either the robot or the simulation logs"""
     global host
     while not NetworkTables.isConnected():
         NetworkTables.initialize(server="10.1.35.2")
