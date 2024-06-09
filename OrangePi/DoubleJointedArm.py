@@ -6,10 +6,8 @@ import sys
 
 import matplotlib as mpl
 from frccontrol import DcBrushedMotor
-from matplotlib import animation
 import matplotlib.pyplot as plt
 import numpy as np
-import time
 
 import frccontrol as fct
 
@@ -19,7 +17,7 @@ if "--noninteractive" not in sys.argv:
 
 class DoubleJointedArm:
     """
-    An frccontrol system representing a double-jointed arm.
+    A frccontrol system representing a double-jointed arm.
 
     States: [joint angle 1(rad), joint angle 2 (rad),
              joint angular velocity 1 (rad/s), joint angular velocity 2(rad/s),
@@ -46,7 +44,8 @@ class DoubleJointedArm:
         :param motor_count2 is motors on the ELBOW section
         :param motor_type is motor (kraken, neo, etc.), must be same between ARM and ELBOW
         :param gravity is gravity component of ARM (meters/second)
-        :param start_state is starting state of ARM (posArm (rad),posElbow (rad),velocityArm (rad/s),velocityElbow (rad/s),StateErrorArm(0),StateErrorElbow (0))
+        :param start_state is starting state of ARM (posArm (rad),posElbow (rad),velocityArm (rad/s)
+        ,velocityElbow (rad/s),StateErrorArm(0),StateErrorElbow (0))
         """
         self.dt = dt
 
@@ -89,7 +88,7 @@ class DoubleJointedArm:
         Advance the model by one timestep towards the setpoint.
         """
         self.x = fct.rkdp(self.f, self.x, self.u, self.dt)
-        self.y = self.h(self.x, self.u)
+        self.y = self.h(self.x)
         #To add noise, uncomment below.
         # self.y += np.array(
         #     [np.random.multivariate_normal(mean=[0, 0], cov=np.diag([1e-4, 1e-4]))]
@@ -128,22 +127,13 @@ class DoubleJointedArm:
 
         self.u = np.clip(u_ff + u_fb - u_err, self.u_min, self.u_max)
 
-    def updateEncoders(self, angle1, angle2, anglevelocity1, anglevelocity2):
-        """
-        Update the arm's matrices based on given angles and angular velocities.
-
-        Keyword arguments:
-        angle1 -- angle of joint 1 (in radians)
-        angle2 -- angle of joint 2 (in radians)
-        anglevelocity1 -- angular velocity of joint 1 (in radians/second)
-        anglevelocity2 -- angular velocity of joint 2 (in radians/second)
-        """
-        self.x[:4] = np.array([[angle1], [angle2], [anglevelocity1], [anglevelocity2]])
-
     def updatePosition(self, angle1, angle2):
+        """
+        Update our kalman filter with a new encoder value.
+        :param angle1: angle of arm in RAD
+        :param angle2: angle of elbow in RAD
+        """
         self.x[:2] = np.array([[angle1], [angle2]])
-        # Update the observer's estimated state x_hat
-        #self.observer.x_hat[:4] = self.x[:4]
 
     def get_dynamics_matrices(self, x):
         """Gets the dynamics matrices for the given state.
@@ -170,9 +160,7 @@ class DoubleJointedArm:
         M = (
                 m1 * np.array([[r1 * r1, 0], [0, 0]])
                 + m2
-                * np.array(
-            [[l1 * l1 + r2 * r2 + 2 * hM, r2 * r2 + hM], [r2 * r2 + hM, r2 * r2]]
-        )
+                * np.array([[l1 * l1 + r2 * r2 + 2 * hM, r2 * r2 + hM], [r2 * r2 + hM, r2 * r2]])
                 + I1 * np.array([[1, 0], [0, 0]])
                 + I2 * np.array([[1, 1], [1, 1]])
         )
@@ -204,22 +192,28 @@ class DoubleJointedArm:
 
         # dx/dt = [ω α 0]ᵀ
         return np.block(
-            [[x[2:4]], [np.linalg.solve(M, torque - C @ omega - G)], [np.zeros((2, 1))]]
+            [[x[2:4]], [np.linalg.solve(M, torque - C @ omega - G)], [np.zeros((2, 1))]]  #ignore this warning
         )
 
     def getVolt(self):
+        """
+        Grab model output voltage
+        :return: voltages for arm motor(s) and elbow motor(s) in a numpy array of [[12.0],[12.0]]
+        """
         return self.u
 
     def getPositions(self):
+        """
+        Grab model output positions
+        :return: numpy array with arm rads and elbow rads ([[1.5],[1]]
+        """
         return self.x[0:2]
 
-    def h(self, x, u):
+    def h(self, x):
         """
         Measurement model.
-
-        Keyword arguments:
-        x -- state vector
-        u -- input vector
+        :param x: state vector
+        :return h: measurement error
         """
         return x[:2, :]
 
@@ -329,7 +323,6 @@ class DoubleJointedArmConstants:
 def main():
     """Entry point."""
 
-    dt = 0.02
     MOTOR_KRAKEN_X60_FOC = DcBrushedMotor(12.0, 9.36, 476.1, 2, 6000.0)  # create Kraken FOC
     dt = 0.02
     length1 = 46.25 * .0254  # in meters, so .0254
@@ -354,12 +347,14 @@ def main():
     motor_count1 = 1
     motor_count2 = 2
     # Motor Type. ALL ARM MOTORS MUST BE SAME
-    motor_type = fct.MOTOR_FALCON_500
+    motor_type = MOTOR_KRAKEN_X60_FOC
     # Gravity
     gravity = 9.806
     double_jointed_arm = DoubleJointedArm(dt, length1, length2, mass1, mass2, pivot_to_CG1, pivot_to_CG2, MOI1, MOI2,
                                           gearing1,
-                                          gearing2, motor_count1, motor_count2, motor_type, gravity)
+                                          gearing2, motor_count1, motor_count2, motor_type, gravity,
+                                          np.array([[0], [0], [0],
+                                                    [0], [0], [0]]))
 
     def to_state(x, y, invert):
         theta1, theta2 = double_jointed_arm.constants.inv_kinematics(x, y, invert)
@@ -367,7 +362,6 @@ def main():
 
     state1 = to_state(1.5, -1, False)
     state2 = to_state(1.5, 1, True)
-    state3 = to_state(-1.8, 1, False)
 
     double_jointed_arm.x = state1
     double_jointed_arm.observer.x_hat = state1
@@ -392,6 +386,14 @@ def get_arm_joints_live(constants, state):
 
 
 def update_plot_live(arm, arm_line, ref_state, ref_line):
+    """
+    Update our Matplot of the arm
+    :param arm: which arm
+    :param arm_line: includes both joints, arm line to update
+    :param ref_state: current desired setpoint state
+    :param ref_line: includes both joints, setpoint line to update
+    :return:
+    """
     xs, ys = get_arm_joints_live(arm.constants, arm.x[:2])
     xr, yr = get_arm_joints_live(arm.constants, ref_state[:2])
     arm_line.set_data(xs, ys)

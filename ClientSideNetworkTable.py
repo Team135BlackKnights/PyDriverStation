@@ -33,9 +33,9 @@ inputNames = []
 outputNames = []
 dataLambda = []
 
-'''
-If you care more about overfitting the model less, use
-model = RandomForestRegressor(n_jobs=-1,n_estimators=100)'''
+
+#If you care more about overfitting the model less, use
+#model = RandomForestRegressor(n_jobs=-1,n_estimators=100)
 model = GradientBoostingRegressor(n_estimators=100)
 wrapper = MultiOutputRegressor(model)
 
@@ -48,7 +48,7 @@ outputSize = 1
 #How much data should be reserved for confirming the model's accuracy?
 #When you've completed tuning the model, this should be 0, as no testing.
 testDataPercent = .3
-
+checkType = ".txt"
 
 def runData(shouldShow, reRunning):
     """This function parses all the data sent to the data handler,
@@ -63,7 +63,7 @@ def runData(shouldShow, reRunning):
     global mvOutputVectors
     if not reRunning:
         # Output size is number of outputs
-        parseData(outputSize)
+        parseData(outputSize, checkType)
 
     createModel(shouldShow)
     saveModel()
@@ -186,10 +186,12 @@ def graphImportance():
     plt.show()
 
 
-def parseData(outputSize):
+def parseData(outputSize, checkType):
     """Takes the inputs from the data folder and converts them into a program-usable array.
     Reads all txt files in sample_data, and puts them all in a nx2 matrix.
-    :param outputSize: The length of the output vectors."""
+    :param outputSize: The length of the output vectors.
+    :param checkType: what file type to check for. ONLY ONE CAN EXIST.
+    """
     global hasParseDataRan, mvInputVectors, mvOutputVectors, variableNames, testInput, testOutput
     if not hasParseDataRan:
 
@@ -197,7 +199,7 @@ def parseData(outputSize):
         for file in os.listdir("data"):
 
             # Checks if the file is a .csv (rio data log file type)
-            if file.endswith(".txt"):  #currently txt as no raw CSVs have been used.
+            if file.endswith(checkType):  #currently txt as no raw CSVs have been used.
 
                 # opens the reader, runs while ignoring heading
                 reader = open("data/" + file, "r", encoding="utf-8")
@@ -300,8 +302,7 @@ def latest_model():
 def load_latest_model(backupShower):
     """
     Loads the model from the aforementioned files
-    :param backupShower: Should I
-    :return:
+    :param backupShower: Should show human-verification outputs if it has to create a model.
     """
     global wrapper
     # Get list of subdirectories in the Models directory
@@ -312,7 +313,7 @@ def load_latest_model(backupShower):
         runData(backupShower, False)
     # Sort directories by creation time (modification time of the directory)
     else:
-        parseData(outputSize)
+        parseData(outputSize, checkType)
         latest_directory = max(model_directories, key=os.path.getmtime)
 
         # Load model from the latest directory
@@ -326,7 +327,7 @@ host = ""  #unknown on boot if SIM or REAL
 
 
 def connect():
-    """Keeps trying to make a connection with either the robot or the simulation logs"""
+    """Keeps trying to make a connection with either the robot or the simulation"""
     global host
 
     # If not connected, keep trying to cycle
@@ -351,7 +352,6 @@ def connect():
 
 
 connect()
-# connected
 sd = NetworkTables.getTable("SmartDashboard")  #uses SmartDashboard for seamless connection at the cost of speed.
 
 data_to_robot = {
@@ -364,22 +364,18 @@ while True:
     if not NetworkTables.isConnected():
         connect()
     current_time = time.time()
-    if current_time - last_execution_time > .11:
+    if current_time - last_execution_time > .11:  #Do this to avoid any lost timestamps via smart dashboard
         last_execution_time = current_time
         # Read JSON from robot
-        data_to_robot.clear()
+        data_to_robot.clear()  #Clear so that each confirmation is only sent once/received once.
         json_response = sd.getString("FromRobot", "default")
-        if json_response != "default":
+        if json_response != "default":  #If we have a response
             data_from_robot = json.loads(json_response)
-
-            # print("Robot status:", data_from_robot["status"])
-            # CALL THE COMPUTE R SQUARED FUNCTION HERE!
             if "shouldUpdateModel" in data_from_robot:
-                if time.time() - lastSentUpdate > .5:
-                    # print("DO")
+                if time.time() - lastSentUpdate > .5:  #Confirm we aren't rerunning the model over and over
                     lastSentUpdate = time.time()
                     m_input = data_from_robot["shouldUpdateModel"]
-                    m_input = m_input[1:-1].replace(" ", "")
+                    m_input = m_input.replace(" ", "")
                     dataSave = m_input
                     m_input = m_input.split(",")
                     inputVals = []
@@ -390,15 +386,15 @@ while True:
                         outputVals.append(m_input[i])
                     new_input_array = np.array([inputVals])
                     new_output_array = np.array([outputVals])
-                    mvInputVectors = np.concatenate((mvInputVectors, new_input_array), axis=0)
-                    mvOutputVectors = np.concatenate((mvOutputVectors, new_output_array), axis=0)
+                    mvInputVectors = np.concatenate((mvInputVectors, new_input_array), axis=0)  #append
+                    mvOutputVectors = np.concatenate((mvOutputVectors, new_output_array), axis=0)  #append
                     runData(False, True)  #never show new calcs because single-input update.
                     print("update time" + str(time.time() - lastSentUpdate))
                     data_to_robot["modelUpdated"] = str("True")
                     #also save to our file.
                     with open("data/shooterData.txt", 'a') as file:
                         file.write(f'\n{dataSave}')
-                    #send the updated model
+                    #send the updated model in a separate thread, so we go right back to main loop
                     send_thread = threading.Thread(target=sendModel)
                     send_thread.start()
         i += 1
