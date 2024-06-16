@@ -48,11 +48,9 @@ class DoubleJointedArm:
         ,velocityElbow (rad/s),StateErrorArm(0),StateErrorElbow (0))
         """
         self.dt = dt
-
         self.constants = DoubleJointedArmConstants(length1, length2, mass1, mass2, pivot_to_CG1, pivot_to_CG2, MOI1,
                                                    MOI2, gearing1, gearing2, motor_count1, motor_count2, motor_type,
                                                    gravity)
-
         q_pos = 0.01745
         q_vel = 0.1745329
         q_error = 10
@@ -66,7 +64,6 @@ class DoubleJointedArm:
             [r_pos, r_pos],
             self.dt,
         )
-
         self.x = np.zeros((6, 1))
         self.u = np.zeros((2, 1))
         self.y = np.zeros((2, 1))
@@ -88,7 +85,7 @@ class DoubleJointedArm:
         Advance the model by one timestep towards the setpoint.
         """
         self.x = fct.rkdp(self.f, self.x, self.u, self.dt)
-        self.y = self.h(self.x)
+        self.y = self.h(self.x, self.u)
         #To add noise, uncomment below.
         # self.y += np.array(
         #     [np.random.multivariate_normal(mean=[0, 0], cov=np.diag([1e-4, 1e-4]))]
@@ -209,7 +206,7 @@ class DoubleJointedArm:
         """
         return self.x[0:2]
 
-    def h(self, x):
+    def h(self, x, u):
         """
         Measurement model.
         :param x: state vector

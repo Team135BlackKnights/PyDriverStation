@@ -83,7 +83,6 @@ def initialize_arm_with_encoders():
     target_state = np.array([[angleShoulder], [angleElbow], [0],
                              [0], [0], [0]])
     arm = initialize_arm(target_state)
-
     # Set initial state based on encoder values
     arm.x = target_state  # Initial state [angle1, angle2, velocity1, velocity2]
     arm.observer.x_hat = arm.x  #override the Kalman filter to have the target_state (since it's our start pos)
