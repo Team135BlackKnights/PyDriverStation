@@ -68,8 +68,10 @@ sudo nano /etc/systemd/system/custom-ai-server.service
 # WorkingDirectory=/home/orangepi/PyDriverStation/OrangePi
 # ExecStart=/usr/local/bin/python3.12 /home/orangepi/PyDriverStation/OrangePi/ServerSide.py
 # Restart=always
+# RestartSec=3
+# StartLimitIntervalSec = 0
 # User=orangepi
-#
+# Group = orangepi
 # [Install]
 # WantedBy=multi-user.target
 
