@@ -1,5 +1,11 @@
- ph# Connect to the OrangePi via SSH
-ssh orangepi@photonvision.local
+#FIRST, make sure that the robot has the following line in RobotInit() (within Robot.java)
+#PortForwarder.add(22, "photonvision.local", 22);
+
+# BE AWARE, ANY "orangepi" REFERENCES M A Y NEED TO BE "pi". Trial and error, my friend!
+
+# Connect to the OrangePi via SSH
+ssh pi@photonvision.local  #This MAY be orangepi@photonvision.local
+#SUDO PASSWORD IS raspberry
 
 # Update the system package lists
 sudo apt update
@@ -44,10 +50,7 @@ git clone https://github.com/Team135BlackKnights/PyDriverStation.git
 ls
 
 # Change to the repository directory
-cd PyDriverStation
-
-# Create a requirements file with necessary packages
-echo -e "joblib\nscikit-learn" > requirements.txt
+cd PyDriverStation/OrangePi
 
 # Install required Python packages
 sudo /usr/local/bin/python3.12 -m pip install -r requirements.txt
@@ -62,8 +65,8 @@ sudo nano /etc/systemd/system/custom-ai-server.service
 # Description=Service that runs your Python script
 #
 # [Service]
-# WorkingDirectory=/home/orangepi/PyDriverStation
-# ExecStart=/usr/local/bin/python3.12 /home/orangepi/PyDriverStation/script.py
+# WorkingDirectory=/home/orangepi/PyDriverStation/OrangePi
+# ExecStart=/usr/local/bin/python3.12 /home/orangepi/PyDriverStation/OrangePi/ServerSide.py
 # Restart=always
 # User=orangepi
 #
