@@ -54,7 +54,7 @@ class DoubleJointedArm:
         q_pos = 0.01745
         q_vel = 0.1745329
         q_error = 10
-        r_pos = 0.05
+        r_pos = 0.01745/4
         self.observer = fct.ExtendedKalmanFilter(
             6,
             2,
@@ -202,9 +202,9 @@ class DoubleJointedArm:
     def getPositions(self):
         """
         Grab model output positions
-        :return: numpy array with arm rads and elbow rads ([[1.5],[1]]
+        :return: numpy array with arm rads and elbow rads, also their velocities ([[1.5],[1],[.02],[.05]]
         """
-        return self.x[0:2]
+        return self.observer.x_hat[0:2]
 
     def h(self, x, u):
         """

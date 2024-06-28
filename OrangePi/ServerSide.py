@@ -126,8 +126,8 @@ def send_to_roborio(data, roborio_ip, roborio_port):
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.connect((roborio_ip, roborio_port))
         s.sendall((json.dumps(data) + '\n').encode())  #send the data
-        data_from_robot = json.loads(s.recv(1024).decode())  #receive response, MUST be AFTER send
         try:
+            data_from_robot = json.loads(s.recv(1024).decode())  #receive response, MUST be AFTER send
             #If you're using a confirmed send (response contains a marker) you'll need an else on your if check.
             if "DoubleJointedEncoders" in data_from_robot:
                 encoders_string = data_from_robot["DoubleJointedEncoders"]
@@ -139,7 +139,7 @@ def send_to_roborio(data, roborio_ip, roborio_port):
                     arm_thread = threading.Thread(target=arm_loop, args=(arm,))
                     arm_thread.daemon = True  # Allow the thread to be terminated when the main thread exits
                     arm_thread.start()
-                arm.updatePosition(encoders[0], encoders[1])
+                arm.updatePosition(angleShoulder, angleElbow)
                 data["gotEncoder"] = str("RECEIVED ENCODERS")
             else:
                 if 'gotEncoder' in data:
@@ -274,7 +274,7 @@ def main():
                 print("CRASHED BECAUSE CONNECTION TERMINATED... REBOOTING")
                 raise ConnectionError
             data_to_robot['timestamp'] = str(heartbeat)
-            data_to_robot['voltages'] = str(voltages)
+            data_to_robot['voltages'] = str(voltages) #3/4 are the wanted positions #5/6 are the (expected) velocities
             send_to_roborio(data_to_robot, roborio_ip, roborio_port)
             #data_to_robot.clear()
 
@@ -285,5 +285,7 @@ def main():
 # 1. HOST (laptop) = 10.1.35.5  OR localhost
 # 2. roborio_ip = 10.1.35.2 OR localhost
 # 3. You have NOT touched send_to_roborio.
+# 4. If you're using the Double Jointed Arm, be SURE to go into DoubleJointedArm.py and tweak "r_pos" DOWN until it
+# breaks the REAL ARM, NOT SIM.
 # Moving any lines in this function will CRASH THE PI (robot will keep working), I almost promise you.
 main()
