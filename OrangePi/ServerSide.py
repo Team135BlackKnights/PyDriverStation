@@ -112,7 +112,7 @@ def arm_loop(arm):
 
 
 arm = None
-
+failCount = 0
 
 def send_to_roborio(data, roborio_ip, roborio_port):
     """
@@ -122,7 +122,7 @@ def send_to_roborio(data, roborio_ip, roborio_port):
     :param roborio_ip: depending on if sim or not (10.1.35.2 or localhost)
     :param roborio_port: almost always 5802.
     """
-    global angleShoulder, angleElbow, arm
+    global angleShoulder, angleElbow, arm, failCount
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.connect((roborio_ip, roborio_port))
         s.sendall((json.dumps(data) + '\n').encode())  #send the data
@@ -133,7 +133,8 @@ def send_to_roborio(data, roborio_ip, roborio_port):
                 encoders_string = data_from_robot["DoubleJointedEncoders"]
                 encoders = [float(value) for value in encoders_string.split(",")]
                 angleShoulder, angleElbow = encoders[0], encoders[1]
-                #If we haven't yet created the arm, do it here.
+                #If we haven't yet created the arm, do it here. This allows for the OrangePi to have zero needed pushes
+                #so that we avoid having to deal with uploading code to the Pi's. All done via ClientSide (hopefully)
                 if arm is None:
                     arm = initialize_arm_with_encoders()
                     arm_thread = threading.Thread(target=arm_loop, args=(arm,))
@@ -149,6 +150,7 @@ def send_to_roborio(data, roborio_ip, roborio_port):
                 m_input = [float(value) for value in m_input_string.split(",")]
                 np_input = np.array(m_input)
                 outputs = runValue(np_input)
+                print(outputs)
                 data["outputs"] = str(outputs)
             else:
                 if 'outputs' in data:
@@ -156,9 +158,16 @@ def send_to_roborio(data, roborio_ip, roborio_port):
             if "DoubleJointSetpoint" in data_from_robot:
                 rawData = data_from_robot["DoubleJointSetpoint"]
                 wantedPos = [float(value) for value in rawData.split(",")]
+                if arm is None:
+                    arm = initialize_arm_with_encoders()
+                    arm_thread = threading.Thread(target=arm_loop, args=(arm,))
+                    arm_thread.daemon = True  # Allow the thread to be terminated when the main thread exits
+                    arm_thread.start()
                 newState = to_state(wantedPos[0], wantedPos[1], bool(wantedPos[2]), arm)
                 arm.set_target_state(newState)
+            failCount = 0
         except Exception:  #we use a global exception case to prevent crashing here, it gives ugly behaviour.
+            failCount += 1
             print("FAILED TO READ")
             pass  #don't crash.
 
@@ -275,7 +284,18 @@ def main():
                 raise ConnectionError
             data_to_robot['timestamp'] = str(heartbeat)
             data_to_robot['voltages'] = str(voltages) #3/4 are the wanted positions #5/6 are the (expected) velocities
-            send_to_roborio(data_to_robot, roborio_ip, roborio_port)
+            try:
+                send_to_roborio(data_to_robot, roborio_ip, roborio_port)
+            except TimeoutError:
+                print("Timed Out RIO")
+                pass
+            except Exception:
+                s.close()
+                print("CRASHED BECAUSE CONNECTION TERMINATED... REBOOTING")
+                raise ConnectionError
+            if failCount > 5:
+                print("Restarting due to too many failed reads in a row.")
+                raise ConnectionError
             #data_to_robot.clear()
 
             # Send the received data to the roboRIO
