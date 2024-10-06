@@ -250,10 +250,14 @@ def runValue(value):
     :param value: numpy array with inputs, like [4.5,2.4,6]
     :return: numpy array with outputs
     """
-    yhat = wrapper.predict([value])
+    try:
+        yhat = wrapper.predict([value])
+        return yhat[0]
+    except Exception as e:
+        print(e)
+        return 0
     # summarize the prediction
     # print('Predicted: %s' % yhat[0])
-    return yhat[0]
 
 
 def main():
@@ -268,7 +272,7 @@ def main():
         print("BINDING...")
         s.bind((HOST, PORT))
         s.listen()
-        s.settimeout(.001)
+        s.settimeout(.005)
         print(f'Server listening on {HOST}:{PORT}')
         while True:
             heartbeat += 1
@@ -283,7 +287,6 @@ def main():
                 print("CRASHED BECAUSE CONNECTION TERMINATED... REBOOTING")
                 raise ConnectionError
             data_to_robot['timestamp'] = str(heartbeat)
-            data_to_robot['voltages'] = str(voltages) #3/4 are the wanted positions #5/6 are the (expected) velocities
             try:
                 send_to_roborio(data_to_robot, roborio_ip, roborio_port)
             except TimeoutError:

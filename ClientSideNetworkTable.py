@@ -40,14 +40,14 @@ model = GradientBoostingRegressor(n_estimators=100)
 wrapper = MultiOutputRegressor(model)
 
 # Stores values for testing
-testInput = []
-testOutput = []
+testInput = [[]]
+testOutput = [[]]
 
 # Number of outputs, automatically grabs all others as inputs.
-outputSize = 1
+outputSize = 2
 #How much data should be reserved for confirming the model's accuracy?
 #When you've completed tuning the model, this should be 0, as no testing.
-testDataPercent = .3
+testDataPercent = .2
 checkType = ".txt"
 
 def runData(shouldShow, reRunning):
@@ -321,7 +321,7 @@ def load_latest_model(backupShower):
         wrapper = joblib.load(os.path.join(latest_directory, "wrapper"))
 
 
-load_latest_model(True)
+load_latest_model(False)
 
 host = ""  #unknown on boot if SIM or REAL
 
