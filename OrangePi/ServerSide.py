@@ -6,12 +6,12 @@ import time
 import re
 import joblib
 import numpy as np
-from frccontrol import DcBrushedMotor
+#from frccontrol import DcBrushedMotor
 from sklearn.ensemble import GradientBoostingRegressor
 from sklearn.multioutput import MultiOutputRegressor
 
 #Custom Imports
-from DoubleJointedArm import DoubleJointedArm
+#from DoubleJointedArm import DoubleJointedArm
 #Gradient Booster is a tree algorithm that uses "trees" (estimators) like neural network layers.
 model = GradientBoostingRegressor(n_estimators=100)
 #We are always going to be using at least one input and one output, so we require this wrapper
@@ -19,8 +19,8 @@ wrapper = MultiOutputRegressor(model)
 
 #Do not edit the directories. It will crash.
 model_naming = re.compile(r"model_v(\d+)\.pkl")
-directory = "../OrangePi/ModelsPI/"
-MOTOR_KRAKEN_X60_FOC = DcBrushedMotor(12.0, 9.36, 476.1, 2, 6000.0)
+directory = "../ModelsPI/"
+#MOTOR_KRAKEN_X60_FOC = DcBrushedMotor(12.0, 9.36, 476.1, 2, 6000.0)
 dt = 0.02  #what's the periodic time OF DoubleJointedArmS.java ?
 length1 = 46.25 * .0254  # in meters, so .0254 conversion factor
 length2 = 41.8 * .0254
@@ -45,7 +45,7 @@ motor_count1 = 1  #How many motors on arm
 motor_count2 = 1  #How many motors on elbow
 
 # Motor Type. ALL ARM MOTORS MUST BE SAME
-motor_type = MOTOR_KRAKEN_X60_FOC
+#motor_type = MOTOR_KRAKEN_X60_FOC
 # Gravity
 gravity = 9.806
 
@@ -71,8 +71,8 @@ def initialize_arm(target_state):
     """
     Initialize the arm.
     """
-    return DoubleJointedArm(dt, length1, length2, mass1, mass2, pivot_to_CG1, pivot_to_CG2, MOI1, MOI2, gearing1,
-                            gearing2, motor_count1, motor_count2, motor_type, gravity, target_state)
+    #return DoubleJointedArm(dt, length1, length2, mass1, mass2, pivot_to_CG1, pivot_to_CG2, MOI1, MOI2, gearing1,
+    #                       gearing2, motor_count1, motor_count2, motor_type, gravity, target_state)
 
 
 def initialize_arm_with_encoders():
@@ -85,7 +85,7 @@ def initialize_arm_with_encoders():
     arm = initialize_arm(target_state)
     # Set initial state based on encoder values
     arm.x = target_state  # Initial state [angle1, angle2, velocity1, velocity2]
-    arm.observer.x_hat = arm.x  #override the Kalman filter to have the target_state (since it's our start pos)
+    #arm.observer.x_hat = arm.x  #override the Kalman filter to have the target_state (since it's our start pos)
 
     return arm
 
@@ -140,7 +140,7 @@ def send_to_roborio(data, roborio_ip, roborio_port):
                     arm_thread = threading.Thread(target=arm_loop, args=(arm,))
                     arm_thread.daemon = True  # Allow the thread to be terminated when the main thread exits
                     arm_thread.start()
-                arm.updatePosition(angleShoulder, angleElbow)
+                #arm.updatePosition(angleShoulder, angleElbow)
                 data["gotEncoder"] = str("RECEIVED ENCODERS")
             else:
                 if 'gotEncoder' in data:
@@ -159,12 +159,12 @@ def send_to_roborio(data, roborio_ip, roborio_port):
                 rawData = data_from_robot["DoubleJointSetpoint"]
                 wantedPos = [float(value) for value in rawData.split(",")]
                 if arm is None:
-                    arm = initialize_arm_with_encoders()
+                    #arm = initialize_arm_with_encoders()
                     arm_thread = threading.Thread(target=arm_loop, args=(arm,))
                     arm_thread.daemon = True  # Allow the thread to be terminated when the main thread exits
                     arm_thread.start()
-                newState = to_state(wantedPos[0], wantedPos[1], bool(wantedPos[2]), arm)
-                arm.set_target_state(newState)
+                #newState = to_state(wantedPos[0], wantedPos[1], bool(wantedPos[2]), arm)
+                #arm.set_target_state(newState)
             failCount = 0
         except Exception:  #we use a global exception case to prevent crashing here, it gives ugly behaviour.
             failCount += 1
@@ -264,7 +264,7 @@ def main():
     HOST = '0.0.0.0'  # Listen on all available interfaces
     PORT = 5801  # Port to listen on for PyDriverStation
     data_to_robot = {'timestamp': '0'}
-    roborio_ip = 'localhost'  # Replace with the actual IP address of the roboRIO (10.1.35.2)
+    roborio_ip = '10.1.35.2'  # Replace with the actual IP address of the roboRIO (10.1.35.2)
     roborio_port = 5802  # Port on which the roboRIO is listening
     heartbeat = 0
     load_latest_model()

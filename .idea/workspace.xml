@@ -7,21 +7,8 @@
     <list default="true" id="018e4b50-d6cb-4af4-9d5a-5fec1ddfd501" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/ClientSideNetworkTable.py" beforeDir="false" afterPath="$PROJECT_DIR$/ClientSideNetworkTable.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Models/1006-170803/wrapper" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Models/1006-170914/wrapper" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Models/1006-171038/wrapper" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Models/1006-171127/wrapper" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Models/1006-171756/wrapper" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Models/1006-171809/wrapper" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Models/1006-171858/wrapper" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Models/1006-171916/wrapper" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/OrangePi/ModelsPI/model_v1.pkl" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/OrangePi/ModelsPI/model_v2.pkl" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/OrangePi/ModelsPI/model_v3.pkl" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/OrangePi/ModelsPI/model_v4.pkl" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/OrangePi/ModelsPI/model_v5.pkl" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/OrangePi/ModelsPI/model_v6.pkl" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/OrangePi/ModelsPI/model_v7.pkl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Models/1007-180628/wrapper" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/OrangePi/ServerSide.py" beforeDir="false" afterPath="$PROJECT_DIR$/OrangePi/ServerSide.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/data/shooterData.txt" beforeDir="false" afterPath="$PROJECT_DIR$/data/shooterData.txt" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -43,27 +30,27 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "Python.ClientSideNetworkTable.executor": "Run",
-    "Python.ServerSide.executor": "Run",
-    "Python.Unnamed.executor": "Run",
-    "Python.Working.executor": "Run",
-    "Python.python.exe.executor": "Run",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "database.data.extractors.current.export.id": "Comma-separated (CSV)_id",
-    "database.data.extractors.current.id": "Comma-separated (CSV)_id",
-    "git-widget-placeholder": "main",
-    "last_opened_file_path": "C:/Users/robot/Documents/GitHub/PyDriverStation",
-    "node.js.detected.package.eslint": "true",
-    "node.js.detected.package.tslint": "true",
-    "node.js.selected.package.eslint": "(autodetect)",
-    "node.js.selected.package.tslint": "(autodetect)",
-    "nodejs_package_manager_path": "npm",
-    "settings.editor.selected.configurable": "com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable",
-    "vue.rearranger.settings.migration": "true"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;Python.ClientSideNetworkTable.executor&quot;: &quot;Run&quot;,
+    &quot;Python.ServerSide.executor&quot;: &quot;Run&quot;,
+    &quot;Python.Unnamed.executor&quot;: &quot;Run&quot;,
+    &quot;Python.Working.executor&quot;: &quot;Run&quot;,
+    &quot;Python.python.exe.executor&quot;: &quot;Run&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;database.data.extractors.current.export.id&quot;: &quot;Comma-separated (CSV)_id&quot;,
+    &quot;database.data.extractors.current.id&quot;: &quot;Comma-separated (CSV)_id&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;last_opened_file_path&quot;: &quot;C:/Users/robot/Documents/GitHub/PyDriverStation&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
-}]]></component>
+}</component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
       <recent name="C:\Users\grant\Documents\PyDriverStation\pythonDriverStation\.venv" />

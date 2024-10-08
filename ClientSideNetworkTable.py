@@ -272,13 +272,13 @@ def parseData(outputSize, checkType):
         print("Data has already been parsed, moving on")
     hasParseDataRan = True
 
-
+extraTime = 0
 def saveModel():
     """Saves the model as a .pkl file on a local drive"""
 
     # Take the timestamp, create a new folder with it
     timestamp = time.strftime("%m%d-%H%M%S")
-    directory = "Models/" + str(timestamp)
+    directory = "Models/" + str(timestamp + extraTime)
     os.makedirs(directory)
 
     # joblib.dump(poly, directory + "/" + "PolynomialFeatures")
