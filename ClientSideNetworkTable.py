@@ -266,8 +266,8 @@ def parseData(outputSize, checkType):
             offset += 1
         mvInputVectors = np.array(mvInputVectors)
         mvOutputVectors = np.array(mvOutputVectors)
-        testInput = np.array(testInput)
-        testOutput = np.array(testOutput)
+        #testInput = np.array(testInput)
+        #testOutput = np.array(testOutput)
     else:
         print("Data has already been parsed, moving on")
     hasParseDataRan = True
