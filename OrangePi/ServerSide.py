@@ -1,9 +1,11 @@
 import os
 import socket
+import sys
 import threading
 import json
 import time
 import re
+import io
 import joblib
 import numpy as np
 #from frccontrol import DcBrushedMotor
@@ -114,6 +116,7 @@ def arm_loop(arm):
 arm = None
 failCount = 0
 
+
 def send_to_roborio(data, roborio_ip, roborio_port):
     """
     Send a given JSON to the roboRIO, and receive the response from the roboRIO.
@@ -122,10 +125,14 @@ def send_to_roborio(data, roborio_ip, roborio_port):
     :param roborio_ip: depending on if sim or not (10.1.35.2 or localhost)
     :param roborio_port: almost always 5802.
     """
-    global angleShoulder, angleElbow, arm, failCount
+    global angleShoulder, angleElbow, arm, failCount, nextConsoleLog
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.connect((roborio_ip, roborio_port))
+        #add the nextConsoleLog to data
+        data['currentStatus'] = nextConsoleLog
         s.sendall((json.dumps(data) + '\n').encode())  #send the data
+        sys.__stdout__.write(nextConsoleLog)
+        nextConsoleLog = []
         try:
             data_from_robot = json.loads(s.recv(1024).decode())  #receive response, MUST be AFTER send
             #If you're using a confirmed send (response contains a marker) you'll need an else on your if check.
@@ -260,6 +267,25 @@ def runValue(value):
     # print('Predicted: %s' % yhat[0])
 
 
+# Buffer to store console output
+nextConsoleLog = []
+
+
+# Custom class to capture stdout and stderr
+# Custom print function to capture both stdout and stderr
+def custom_print(*args, **kwargs):
+    # Convert all args to a single string
+    output = ' '.join(map(str, args))
+    # Capture the log
+    nextConsoleLog.append(output)
+    # Call the original print function to print to console
+    sys.__stdout__.write(output + "\n")  # Use sys.__stdout__ to avoid recursion with custom print
+
+
+# Override the built-in print function with our custom function
+print = custom_print
+
+
 def main():
     HOST = '0.0.0.0'  # Listen on all available interfaces
     PORT = 5801  # Port to listen on for PyDriverStation
@@ -276,6 +302,8 @@ def main():
         print(f'Server listening on {HOST}:{PORT}')
         while True:
             heartbeat += 1
+            #read the console, and set nextConsoleLog to it
+
             try:
                 conn, addr = s.accept()
                 client_thread = threading.Thread(target=handle_client, args=(conn, addr))
