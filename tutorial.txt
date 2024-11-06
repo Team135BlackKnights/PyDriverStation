@@ -61,19 +61,19 @@ sudo touch /etc/systemd/system/custom-ai-server.service
 # Edit the systemd service file
 sudo nano /etc/systemd/system/custom-ai-server.service
 # (paste the service file content here and save)
-# [Unit]
-# Description=Service that runs your Python script
-#
-# [Service]
-# WorkingDirectory=/home/orangepi/PyDriverStation/OrangePi
-# ExecStart=/usr/local/bin/python3.12 /home/orangepi/PyDriverStation/OrangePi/ServerSide.py
-# Restart=always
-# RestartSec=3
-# StartLimitIntervalSec = 0
-# User=orangepi
-# Group = orangepi
-# [Install]
-# WantedBy=multi-user.target
+[Unit]
+Description=Service that runs the AI / ANY python safely, and auto logging and updating.
+
+[Service]
+WorkingDirectory=/home/pi/PyDriverStation/OrangePi
+ExecStart=/usr/local/bin/python3.11 /home/pi/PyDriverStation/OrangePi/ServerSide.py
+Restart=always
+RestartSec=3
+StartLimitIntervalSec=0
+User=pi
+Group=pi
+[Install]
+WantedBy=multi-user.target
 
 # Set the correct permissions for the service file
 sudo chmod 644 /etc/systemd/system/custom-ai-server.service

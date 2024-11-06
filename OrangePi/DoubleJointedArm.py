@@ -26,7 +26,7 @@ class DoubleJointedArm:
     """
 
     def __init__(self, dt, length1, length2, mass1, mass2, pivot_to_CG1, pivot_to_CG2, MOI1, MOI2, gearing1, gearing2,
-                 motor_count1, motor_count2, motor_type, gravity, start_state):
+                 motor_count1, motor_count2, motor_type, gravity, start_state, q_pos, q_vel, q_error, r_pos):
         """
         Double-jointed arm subsystem
         :param dt periodic cycle time
@@ -51,10 +51,6 @@ class DoubleJointedArm:
         self.constants = DoubleJointedArmConstants(length1, length2, mass1, mass2, pivot_to_CG1, pivot_to_CG2, MOI1,
                                                    MOI2, gearing1, gearing2, motor_count1, motor_count2, motor_type,
                                                    gravity)
-        q_pos = 0.01745
-        q_vel = 0.1745329
-        q_error = 10
-        r_pos = 0.01745/4
         self.observer = fct.ExtendedKalmanFilter(
             6,
             2,
@@ -64,7 +60,9 @@ class DoubleJointedArm:
             [r_pos, r_pos],
             self.dt,
         )
-        self.x = np.zeros((6, 1))
+        self.q_pos = q_pos
+        self.q_vel = q_vel
+        self.x = start_state
         self.u = np.zeros((2, 1))
         self.y = np.zeros((2, 1))
         self.target_state = start_state  #may need to become a given start state. #np.zeroes((6,1))
@@ -113,7 +111,7 @@ class DoubleJointedArm:
         u_fb = fct.LinearQuadraticRegulator(
             A[:4, :4],
             B[:4, :],
-            [0.01745, 0.01745, 0.08726, 0.08726],
+            [self.q_pos, self.q_pos, self.q_vel / 2, self.q_vel / 2],
             [12.0, 12.0],
             self.dt,
         ).K @ (self.target_state[0:4] - self.observer.x_hat[0:4])
@@ -131,6 +129,19 @@ class DoubleJointedArm:
         :param angle2: angle of elbow in RAD
         """
         self.x[:2] = np.array([[angle1], [angle2]])
+
+    def update_qelms_relms(self, q_pos, q_vel, q_error, r_pos):
+        self.q_pos = q_pos
+        self.q_vel = q_vel
+        self.observer = fct.ExtendedKalmanFilter(
+            6,
+            2,
+            self.f,
+            self.h,
+            [q_pos, q_pos, q_vel, q_vel, q_error, q_error],
+            [r_pos, r_pos],
+            self.dt,
+        )
 
     def get_dynamics_matrices(self, x):
         """Gets the dynamics matrices for the given state.
@@ -351,7 +362,7 @@ def main():
                                           gearing1,
                                           gearing2, motor_count1, motor_count2, motor_type, gravity,
                                           np.array([[0], [0], [0],
-                                                    [0], [0], [0]]))
+                                                    [0], [0], [0]]), 0.01745, 0.1745329, 10, 0.01745 / 4)
 
     def to_state(x, y, invert):
         theta1, theta2 = double_jointed_arm.constants.inv_kinematics(x, y, invert)
