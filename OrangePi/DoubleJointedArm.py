@@ -4,15 +4,15 @@
 
 import sys
 
-import matplotlib as mpl
+#import matplotlib as mpl
 from frccontrol import DcBrushedMotor
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 import numpy as np
 
 import frccontrol as fct
 
-if "--noninteractive" not in sys.argv:
-    mpl.use("TkAgg")
+#if "--noninteractive" not in sys.argv:
+#    mpl.use("TkAgg")
 
 
 class DoubleJointedArm:
@@ -327,11 +327,10 @@ class DoubleJointedArmConstants:
 
         return theta1, theta2
 
-
+'''
 def main():
     """Entry point."""
 
-    MOTOR_KRAKEN_X60_FOC = DcBrushedMotor(12.0, 9.36, 476.1, 2, 6000.0)  # create Kraken FOC
     dt = 0.02
     length1 = 46.25 * .0254  # in meters, so .0254
     length2 = 41.8 * .0254
@@ -382,6 +381,7 @@ def main():
         plt.draw()
         plt.pause(dt)
 
+'''
 
 def get_arm_joints_live(constants, state):
     """
@@ -408,7 +408,7 @@ def update_plot_live(arm, arm_line, ref_state, ref_line):
     ref_line.set_data(xr, yr)
     return arm_line, ref_line
 
-
+'''
 def initialize_plot_live(arm):
     """
     Initialize the plot for live simulation.
@@ -435,3 +435,4 @@ def initialize_plot_live(arm):
 
 if __name__ == "__main__":
     main()
+'''

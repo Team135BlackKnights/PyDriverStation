@@ -8,7 +8,7 @@ import re
 import io
 import joblib
 import numpy as np
-from frccontrol import DcBrushedMotor
+import frccontrol
 from sklearn.ensemble import GradientBoostingRegressor
 from sklearn.multioutput import MultiOutputRegressor
 
@@ -23,7 +23,7 @@ wrapper = MultiOutputRegressor(model)
 #Do not edit the directories. It will crash.
 model_naming = re.compile(r"model_v(\d+)\.pkl")
 directory = "../ModelsPI/"
-MOTOR_KRAKEN_X60_FOC = DcBrushedMotor(12.0, 9.36, 476.1, 2, 6000.0)
+MOTOR_KRAKEN_X60_FOC = frccontrol.DCMotor(12.0, 9.36, 476.1, 2, 6000.0)
 dt = 0.02  #what's the periodic time OF DoubleJointedArmS.java ?
 length1 = 46.25 * .0254  # in meters, so .0254 conversion factor
 length2 = 41.8 * .0254
